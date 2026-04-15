@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { Sidebar } from "@/components/sidebar";
 import "./styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Coploy",
+  title: "Deploy to Dokploy | Monolithic Void",
   description:
-    "Configure and launch a polished CloudDeploy production deployment.",
+    "Configure a Dokploy deployment inside the Monolithic Void control plane.",
 };
 
 export default function RootLayout({
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full">
+        <Sidebar />
+        {children}
+      </body>
     </html>
   );
 }
