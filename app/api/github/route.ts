@@ -1,33 +1,5 @@
+import { parseGithubRepo } from "@/lib/github";
 import { NextResponse } from "next/server";
-
-function parseGithubRepo(repoUrl: string) {
-  try {
-    const url = new URL(repoUrl);
-
-    const isGithubHost = url.hostname === "github.com";
-
-    if (!isGithubHost) {
-      throw new Error("Please enter a valid GitHub repository URL.");
-    }
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    console.log(parts);
-    if (parts.length < 2) {
-      throw new Error("Please enter a valid GitHub repository URL.");
-    }
-
-    const owner = parts[0];
-    const repo = parts[1].replace(/\.git$/, "");
-
-    return {
-      owner,
-      repo,
-      url: `https://github.com/${owner}/${repo}`,
-    };
-  } catch {
-    throw new Error("Please enter a valid GitHub repository URL.");
-  }
-}
 
 async function github<T>(path: string): Promise<T> {
   const response = await fetch(`https://api.github.com/${path}`, {
@@ -68,13 +40,13 @@ export async function POST(request: Request) {
       `repos/${owner}/${repo}/branches?per_page=100`,
     );
 
-    const contents = await github<
+    /* const contents = await github<
       Array<{ name: string; path: string; type: "file" | "dir" }>
     >(`repos/${owner}/${repo}/contents`);
 
     const directories = contents
       .filter((item) => item.type === "dir")
-      .map((item) => item.path);
+      .map((item) => item.path); */
 
     return NextResponse.json({
       repo: {
@@ -82,11 +54,11 @@ export async function POST(request: Request) {
         fullName: repoInfo.full_name,
         description: repoInfo.description,
         private: repoInfo.private,
-        url: url,
+        url,
       },
       branches: branches.map((item) => item.name),
       defaultBranch: repoInfo.default_branch,
-      rootDirectory: ".",
+      rootDirectory: "./",
     });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message });

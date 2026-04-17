@@ -1,5 +1,5 @@
 import { DeployForm } from "@/components/deployment/deploy-form";
-import { Icon } from "@/app/styles/icon";
+import { Icon } from "@/components/icon";
 
 export default function Page() {
   return (

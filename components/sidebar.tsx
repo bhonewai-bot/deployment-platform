@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Icon } from "@/app/styles/icon";
+import { Icon } from "@/components/icon";
 import { navigationItems } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 

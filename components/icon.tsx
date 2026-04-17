@@ -1,7 +1,9 @@
-import { cn } from "@/lib/utils";
-import type { IconName } from "@/lib/types";
+import type { ReactElement } from "react";
 
-const pathMap: Record<IconName, JSX.Element> = {
+import type { IconName } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const pathMap: Record<IconName, ReactElement> = {
   folder: (
     <path
       d="M3.75 6.75A2.25 2.25 0 0 1 6 4.5h3.19a2.25 2.25 0 0 1 1.59.66l.56.56c.42.42.99.66 1.59.66H18A2.25 2.25 0 0 1 20.25 9v7.5A2.25 2.25 0 0 1 18 18.75H6A2.25 2.25 0 0 1 3.75 16.5V6.75Z"

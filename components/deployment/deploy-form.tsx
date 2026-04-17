@@ -10,12 +10,11 @@ export function DeployForm() {
   const [branches, setBranches] = useState<string[]>([]);
   const [repoInfo, setRepoInfo] = useState(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  //   const { data: branches } = useSWR<string[]>(`/branches/${repo}`, fetcher);
+  const [importLoading, setImportLoading] = useState(false);
+  const [deployLoading, setDeployLoading] = useState(false);
 
   const [envVars, setEnvVars] = useState<EnvVar[]>([
-    { id: 1, key: "DATABASE_URL", value: "••••••••••••", secret: true },
+    { id: 1, key: "DATABASE_URL", value: "", secret: true },
   ]);
 
   function isValidGithubRepoUrl(value: string) {
@@ -38,7 +37,7 @@ export function DeployForm() {
       return;
     }
 
-    setLoading(true);
+    setImportLoading(true);
     setError("");
 
     try {
@@ -62,7 +61,46 @@ export function DeployForm() {
     } catch (error) {
       setError(error instanceof Error ? error.message : "Import failed.");
     } finally {
-      setLoading(false);
+      setImportLoading(false);
+    }
+  }
+
+  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!repoInfo) {
+      setError("Please import a repository first.");
+      return;
+    }
+
+    setDeployLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/deployment", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          repoUrl: repo,
+          branch,
+          rootDirectory,
+          envVars,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Deployment failed.");
+      }
+    } catch (deplyError) {
+      setError(
+        deplyError instanceof Error ? deplyError.message : "Deployment failed.",
+      );
+    } finally {
+      setDeployLoading(false);
     }
   }
 
@@ -86,7 +124,7 @@ export function DeployForm() {
   }
 
   return (
-    <form className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="font-mono text-xs uppercase tracking-widest text-on-surface-variant">
@@ -130,10 +168,10 @@ export function DeployForm() {
             type="button"
             onClick={handleImport}
             className="inline-flex min-w-32 items-center justify-center gap-2 rounded-lg border border-[#8db4ff] bg-linear-to-b from-[#9fc0ff] to-[#5effff] px-5 py-3 text-sm font-extrabold text-[#123a79] shadow-[0_5px_30px_rgba(101,153,255,0.32)] transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={loading || !repo.trim()}
-            aria-busy={loading}
+            disabled={importLoading || !repo.trim()}
+            aria-busy={importLoading}
           >
-            {loading ? (
+            {importLoading ? (
               <>
                 <svg
                   viewBox="0 0 24 24"
@@ -156,6 +194,7 @@ export function DeployForm() {
                     strokeWidth="3"
                   />
                 </svg>
+                Importing...
               </>
             ) : (
               "Import"
@@ -222,7 +261,7 @@ export function DeployForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="font-mono text-xs uppercase tracking-widest text-on-surface-variant">
-                Environment Variables
+                Environment Variables <span>(optional)</span>
               </label>
               <button
                 className="flex items-center gap-1 text-[11px] font-bold text-primary transition-opacity hover:opacity-80"
@@ -274,10 +313,38 @@ export function DeployForm() {
 
             <div className="flex items-center border-outline-variant/5 pt-6">
               <button
-                className="w-full rounded-lg border border-[#8db4ff] bg-linear-to-b from-[#9fc0ff] to-[#5effff] px-6 py-3 text-sm font-extrabold uppercase text-[#123a79] shadow-[0_5px_30px_rgba(101,153,255,0.32)] transition-all hover:brightness-105 active:scale-[0.98]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#8db4ff] bg-linear-to-b from-[#9fc0ff] to-[#5effff] px-6 py-3 text-sm font-extrabold uppercase text-[#123a79] shadow-[0_5px_30px_rgba(101,153,255,0.32)] transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 type="submit"
+                disabled={deployLoading}
               >
-                Deploy
+                {deployLoading ? (
+                  <>
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="size-4 animate-spin"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        className="opacity-25"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      />
+                      <path
+                        d="M21 12a9 9 0 0 0-9-9"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                    Deploying...
+                  </>
+                ) : (
+                  "Deploy"
+                )}
               </button>
             </div>
           </div>
