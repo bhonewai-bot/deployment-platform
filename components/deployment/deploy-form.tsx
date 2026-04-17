@@ -9,6 +9,9 @@ export function DeployForm() {
   const [rootDirectory, setRootDirectory] = useState("./");
   const [branches, setBranches] = useState<string[]>([]);
   const [repoInfo, setRepoInfo] = useState(null);
+  const [deploymentType, setDeploymentType] = useState<
+    "dockerfile" | "static" | "unknown"
+  >("unknown");
   const [error, setError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const [deployLoading, setDeployLoading] = useState(false);
@@ -58,7 +61,9 @@ export function DeployForm() {
       setRepoInfo(data.repo);
       setBranches(data.branches);
       setBranch(data.defaultBranch);
+      setDeploymentType(data.detectedDeploymentType ?? "unknown");
     } catch (error) {
+      setDeploymentType("unknown");
       setError(error instanceof Error ? error.message : "Import failed.");
     } finally {
       setImportLoading(false);
@@ -77,6 +82,9 @@ export function DeployForm() {
     setError("");
 
     try {
+      const resolvedDeploymentType =
+        deploymentType === "static" ? "static" : "dockerfile";
+
       const response = await fetch("/api/deployment", {
         method: "POST",
         headers: {
@@ -86,6 +94,7 @@ export function DeployForm() {
           repoUrl: repo,
           branch,
           rootDirectory,
+          deploymentType: resolvedDeploymentType,
           envVars,
         }),
       });
@@ -194,7 +203,6 @@ export function DeployForm() {
                     strokeWidth="3"
                   />
                 </svg>
-                Importing...
               </>
             ) : (
               "Import"

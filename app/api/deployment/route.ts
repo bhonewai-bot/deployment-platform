@@ -75,6 +75,10 @@ async function dokploy(path: string, body: unknown) {
 
   const data = await response.json().catch(() => null);
 
+  if (!response.ok) {
+    throw new Error(data?.message || "Dokploy request failed.");
+  }
+
   return data;
 }
 
@@ -88,14 +92,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const { repoUrl, branch, rootDirectory, envVars } =
+    const { repoUrl, branch, rootDirectory, deploymentType, envVars } =
       (await request.json()) as DeployBody;
 
     const { repo, url } = parseGithubRepo(repoUrl);
     const buildPath = normalizePath(rootDirectory);
-    const dockerfilePath =
-      buildPath === "./" ? "Dockerfile" : `${buildPath}/Dockerfile`;
     const appName = toAppName(repo);
+
     const env = (envVars ?? [])
       .filter((item) => item.key.trim() && item.value.trim())
       .filter((item) => !/^[•]+$/.test(item.value.trim()))
@@ -109,6 +112,7 @@ export async function POST(request: Request) {
     });
 
     const applicationId = extractApplicationId(createdApplication);
+    console.log(applicationId);
 
     if (!applicationId) {
       throw new Error("Failed to create application");
@@ -124,17 +128,36 @@ export async function POST(request: Request) {
       customGitSSHKeyId: null,
     });
 
-    await dokploy("application.saveBuildType", {
-      applicationId,
-      buildType: "dockerfile",
-      dockerfile: dockerfilePath,
-      dockerContextPath: buildPath,
-      dockerBuildStage: null,
-      herokuVersion: null,
-      railpackVersion: null,
-      publishDirectory: null,
-      isStaticSpa: null,
-    });
+    if (deploymentType === "dockerfile") {
+      const dockerfilePath =
+        buildPath === "./" ? "Dockerfile" : `${buildPath}/Dockerfile`;
+
+      await dokploy("application.saveBuildType", {
+        applicationId,
+        buildType: "dockerfile",
+        dockerfile: dockerfilePath,
+        dockerContextPath: buildPath,
+        dockerBuildStage: null,
+        herokuVersion: null,
+        railpackVersion: null,
+        publishDirectory: null,
+        isStaticSpa: null,
+      });
+    }
+
+    if (deploymentType === "static") {
+      await dokploy("application.saveBuildType", {
+        applicationId,
+        buildType: "static",
+        publishDirectory: buildPath,
+        isStaticSpa: false,
+        dockerfile: null,
+        dockerContextPath: null,
+        dockerBuildStage: null,
+        herokuVersion: null,
+        railpackVersion: null,
+      });
+    }
 
     await dokploy("application.saveEnvironment", {
       applicationId,

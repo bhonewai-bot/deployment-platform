@@ -1,6 +1,12 @@
 import { parseGithubRepo } from "@/lib/github";
 import { NextResponse } from "next/server";
 
+type GithubContentItem = {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+};
+
 async function github<T>(path: string): Promise<T> {
   const response = await fetch(`https://api.github.com/${path}`, {
     headers: {
@@ -14,13 +20,26 @@ async function github<T>(path: string): Promise<T> {
 
   if (!response.ok) {
     if (response.status === 404) {
-      throw new Error("Repository not found");
+      throw new Error("Repository not found.");
     }
-
     throw new Error(`GitHub request failed: ${response.status}`);
   }
 
   return response.json();
+}
+
+function detectDeploymentType(contents: GithubContentItem[]) {
+  const names = new Set(contents.map((item) => item.name.toLowerCase()));
+
+  if (names.has("dockerfile")) {
+    return "dockerfile";
+  }
+
+  if (names.has("index.html")) {
+    return "static";
+  }
+
+  return "unknown";
 }
 
 export async function POST(request: Request) {
@@ -40,13 +59,15 @@ export async function POST(request: Request) {
       `repos/${owner}/${repo}/branches?per_page=100`,
     );
 
-    /* const contents = await github<
+    const contents = await github<
       Array<{ name: string; path: string; type: "file" | "dir" }>
     >(`repos/${owner}/${repo}/contents`);
 
-    const directories = contents
+    /* const directories = contents
       .filter((item) => item.type === "dir")
       .map((item) => item.path); */
+
+    const deploymentType = detectDeploymentType(contents);
 
     return NextResponse.json({
       repo: {
@@ -59,6 +80,8 @@ export async function POST(request: Request) {
       branches: branches.map((item) => item.name),
       defaultBranch: repoInfo.default_branch,
       rootDirectory: "./",
+      detectedDeploymentType: deploymentType,
+      detectedFiles: contents.map((item) => item.name),
     });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message });
