@@ -2,6 +2,7 @@
 
 import { EnvVar } from "@/lib/types";
 import { useState } from "react";
+import { DeployLog, DeploymentLogLine } from "./deploy-log";
 
 export function DeployForm() {
   const [repo, setRepo] = useState("");
@@ -12,6 +13,11 @@ export function DeployForm() {
   const [deploymentType, setDeploymentType] = useState<
     "dockerfile" | "static" | "unknown"
   >("unknown");
+  const [applicationId, setApplicationId] = useState("");
+  const [logs, setLogs] = useState<DeploymentLogLine[]>([]);
+  const [deploymentStatus, setDeploymentStatus] = useState<
+    "idle" | "building" | "done" | "error"
+  >("idle");
   const [error, setError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const [deployLoading, setDeployLoading] = useState(false);
@@ -80,6 +86,9 @@ export function DeployForm() {
 
     setDeployLoading(true);
     setError("");
+    setLogs([]);
+    setApplicationId("");
+    setDeploymentStatus("building");
 
     try {
       const resolvedDeploymentType =
@@ -104,6 +113,21 @@ export function DeployForm() {
       if (!response.ok) {
         throw new Error(data.error || "Deployment failed.");
       }
+
+      setApplicationId(data.applicationId);
+
+      setLogs([
+        {
+          id: "deployment-started",
+          time: new Date().toLocaleTimeString("en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          level: "info",
+          message: data.message || "Deployment started in Dokploy.",
+        },
+      ]);
     } catch (deplyError) {
       setError(
         deplyError instanceof Error ? deplyError.message : "Deployment failed.",
@@ -319,7 +343,7 @@ export function DeployForm() {
               ))}
             </div>
 
-            <div className="flex items-center border-outline-variant/5 pt-6">
+            <div className="flex items-center border-outline-variant/5 pt-4 pb-4">
               <button
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#8db4ff] bg-linear-to-b from-[#9fc0ff] to-[#5effff] px-6 py-3 text-sm font-extrabold uppercase text-[#123a79] shadow-[0_5px_30px_rgba(101,153,255,0.32)] transition-all hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                 type="submit"
@@ -355,6 +379,13 @@ export function DeployForm() {
                 )}
               </button>
             </div>
+
+            {(logs.length > 0 || applicationId) && (
+              <DeployLog
+                logs={logs}
+                loading={deploymentStatus === "building"}
+              />
+            )}
           </div>
         </div>
       ) : null}

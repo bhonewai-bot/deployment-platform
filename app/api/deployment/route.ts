@@ -10,6 +10,10 @@ type DeployBody = {
   envVars?: EnvVar[];
 };
 
+type CreatedApplication = {
+  applicationId?: string;
+};
+
 function normalizePath(path: string) {
   const trimmed = path.trim();
 
@@ -22,35 +26,15 @@ function normalizePath(path: string) {
 
 function toAppName(value: string) {
   return value
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(
+      (word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`,
+    )
+    .join(" ")
     .slice(0, 63);
-}
-
-function extractApplicationId(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
-
-  if (typeof record.applicationId === "string") {
-    return record.applicationId;
-  }
-
-  if (typeof record.id === "string") {
-    return record.id;
-  }
-
-  for (const value of Object.values(record)) {
-    const nested = extractApplicationId(value);
-    if (nested) {
-      return nested;
-    }
-  }
-
-  return null;
 }
 
 async function dokploy(path: string, body: unknown) {
@@ -105,14 +89,13 @@ export async function POST(request: Request) {
       .map((item) => `${item.key.trim()}=${item.value.trim()}`)
       .join("\n");
 
-    const createdApplication = await dokploy("application.create", {
+    const createdApplication = (await dokploy("application.create", {
       name: repo,
       appName,
       environmentId,
-    });
+    })) as CreatedApplication;
 
-    const applicationId = extractApplicationId(createdApplication);
-    console.log(applicationId);
+    const applicationId = createdApplication.applicationId;
 
     if (!applicationId) {
       throw new Error("Failed to create application");
