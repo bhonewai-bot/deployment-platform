@@ -16,10 +16,10 @@ export default function Page() {
             <h2 className="mb-2 text-4xl leading-none font-extrabold tracking-tight text-white">
               Deploy to Dokploy
             </h2>
-            <p className="max-w-lg text-sm text-on-surface-variant">
+            {/*  <p className="max-w-lg text-sm text-on-surface-variant">
               Initialize your obsidian forge. Connect your repository and define
               the environment for instantaneous deployment.
-            </p>
+            </p> */}
           </header>
 
           <div className="relative overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-high p-8 shadow-2xl">

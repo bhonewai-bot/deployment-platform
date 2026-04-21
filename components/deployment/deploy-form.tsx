@@ -1,15 +1,39 @@
 "use client";
 
 import { EnvVar } from "@/lib/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DeployLog, DeploymentLogLine } from "./deploy-log";
+
+type ImportedRepo = {
+  name: string;
+  fullName: string;
+  description: string | null;
+  private: boolean;
+  url: string;
+};
+
+type ImportResponse = {
+  repo: ImportedRepo;
+  branches: string[];
+  defaultBranch: string;
+  rootDirectory: string;
+  detectedDeploymentType: "dockerfile" | "static" | "unknown";
+};
+
+type DeployResponse = {
+  applicationId?: string;
+  message?: string;
+  publicUrl?: string | null;
+  domainError?: string | null;
+  error?: string;
+};
 
 export function DeployForm() {
   const [repo, setRepo] = useState("");
   const [branch, setBranch] = useState("");
   const [rootDirectory, setRootDirectory] = useState("./");
   const [branches, setBranches] = useState<string[]>([]);
-  const [repoInfo, setRepoInfo] = useState(null);
+  const [repoInfo, setRepoInfo] = useState<ImportedRepo | null>(null);
   const [deploymentType, setDeploymentType] = useState<
     "dockerfile" | "static" | "unknown"
   >("unknown");
@@ -21,10 +45,18 @@ export function DeployForm() {
   const [error, setError] = useState("");
   const [importLoading, setImportLoading] = useState(false);
   const [deployLoading, setDeployLoading] = useState(false);
+  const [publicUrl, setPublicUrl] = useState("");
+  const [domainError, setDomainError] = useState("");
+  const [generatePublicUrl, setGeneratePublicUrl] = useState(true);
+  const [containerPort, setContainerPort] = useState("3000");
 
   const [envVars, setEnvVars] = useState<EnvVar[]>([
     { id: 1, key: "DATABASE_URL", value: "", secret: true },
   ]);
+
+  useEffect(() => {
+    setContainerPort(deploymentType === "static" ? "80" : "3000");
+  }, [deploymentType]);
 
   function isValidGithubRepoUrl(value: string) {
     try {
@@ -58,7 +90,9 @@ export function DeployForm() {
         body: JSON.stringify({ repoUrl: repo }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as
+        | ImportResponse
+        | { error?: string };
 
       if (!response.ok) {
         throw new Error(data.error || "Something went wrong.");
@@ -68,8 +102,15 @@ export function DeployForm() {
       setBranches(data.branches);
       setBranch(data.defaultBranch);
       setDeploymentType(data.detectedDeploymentType ?? "unknown");
+      setPublicUrl("");
+      setDomainError("");
     } catch (error) {
+      setRepoInfo(null);
+      setBranches([]);
+      setBranch("");
       setDeploymentType("unknown");
+      setPublicUrl("");
+      setDomainError("");
       setError(error instanceof Error ? error.message : "Import failed.");
     } finally {
       setImportLoading(false);
@@ -89,6 +130,8 @@ export function DeployForm() {
     setLogs([]);
     setApplicationId("");
     setDeploymentStatus("building");
+    setPublicUrl("");
+    setDomainError("");
 
     try {
       const resolvedDeploymentType =
@@ -104,17 +147,21 @@ export function DeployForm() {
           branch,
           rootDirectory,
           deploymentType: resolvedDeploymentType,
+          generatePublicUrl,
+          containerPort: Number.parseInt(containerPort, 10),
           envVars,
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as DeployResponse;
 
       if (!response.ok) {
         throw new Error(data.error || "Deployment failed.");
       }
 
       setApplicationId(data.applicationId);
+      setPublicUrl(data.publicUrl ?? "");
+      setDomainError(data.domainError ?? "");
 
       setLogs([
         {
@@ -136,6 +183,64 @@ export function DeployForm() {
       setDeployLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (!applicationId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function pollDeploymentStatus() {
+      try {
+        const response = await fetch(
+          `/api/deployment/status?applicationId=${encodeURIComponent(applicationId)}`,
+          { cache: "no-store" },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load deployment logs.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        setDeploymentStatus(data.status ?? "building");
+        setLogs((prev) => {
+          const nextLogs = Array.isArray(data.logs) ? data.logs : [];
+          return nextLogs.length > 0 ? nextLogs : prev;
+        });
+
+        if (data.status === "done" || data.status === "error") {
+          clearInterval(interval);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDeploymentStatus("error");
+          setError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load development logs.",
+          );
+          clearInterval(interval);
+        }
+      }
+    }
+
+    void pollDeploymentStatus();
+
+    const interval = setInterval(() => {
+      void pollDeploymentStatus();
+    }, 2500);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [applicationId]);
 
   function addVariable() {
     setEnvVars((current) => [
@@ -379,6 +484,26 @@ export function DeployForm() {
                 )}
               </button>
             </div>
+
+            {publicUrl ? (
+              <div className="rounded-lg border border-emerald-300/20  px-4 py-3 text-sm text-emerald-300">
+                Public URL ready:{" "}
+                <a
+                  className="font-medium underline underline-offset-2"
+                  href={publicUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {publicUrl}
+                </a>
+              </div>
+            ) : null}
+
+            {domainError ? (
+              <p className="text-sm text-amber-200">
+                Domain generation skipped: {domainError}
+              </p>
+            ) : null}
 
             {(logs.length > 0 || applicationId) && (
               <DeployLog

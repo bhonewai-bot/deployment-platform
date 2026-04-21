@@ -84,6 +84,9 @@ export async function POST(request: Request) {
       detectedFiles: contents.map((item) => item.name),
     });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message });
+    return NextResponse.json(
+      { error: (error as Error).message },
+      { status: 400 },
+    );
   }
 }

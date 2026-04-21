@@ -9,7 +9,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-white/5 bg-[#1c1b1d] p-4 text-sm font-medium tracking-tight">
       <div className="mb-10 px-2 pt-2">
         <h1 className="mb-0 text-lg font-black uppercase tracking-tighter text-white">
-          Monolithic Void
+          Gori Lab
         </h1>
         <p className="-mt-0.5 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
           Deployment Engine
