@@ -176,7 +176,9 @@ export function DeployForm() {
       ]);
     } catch (deployError) {
       setError(
-        deployError instanceof Error ? deployError.message : "Deployment failed.",
+        deployError instanceof Error
+          ? deployError.message
+          : "Deployment failed.",
       );
     } finally {
       setDeployLoading(false);
