@@ -13,11 +13,12 @@ type ImportedRepo = {
 };
 
 type ImportResponse = {
-  repo: ImportedRepo;
-  branches: string[];
-  defaultBranch: string;
-  rootDirectory: string;
-  detectedDeploymentType: "dockerfile" | "static" | "unknown";
+  repo?: ImportedRepo;
+  branches?: string[];
+  defaultBranch?: string;
+  rootDirectory?: string;
+  detectedDeploymentType?: "dockerfile" | "static" | "unknown";
+  error?: string;
 };
 
 type DeployResponse = {
@@ -90,17 +91,15 @@ export function DeployForm() {
         body: JSON.stringify({ repoUrl: repo }),
       });
 
-      const data = (await response.json()) as
-        | ImportResponse
-        | { error?: string };
+      const data = (await response.json()) as ImportResponse;
 
       if (!response.ok) {
         throw new Error(data.error || "Something went wrong.");
       }
 
-      setRepoInfo(data.repo);
-      setBranches(data.branches);
-      setBranch(data.defaultBranch);
+      setRepoInfo(data.repo ?? null);
+      setBranches(data.branches ?? []);
+      setBranch(data.defaultBranch ?? "");
       setDeploymentType(data.detectedDeploymentType ?? "unknown");
       setPublicUrl("");
       setDomainError("");
@@ -117,7 +116,7 @@ export function DeployForm() {
     }
   }
 
-  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!repoInfo) {
@@ -159,7 +158,7 @@ export function DeployForm() {
         throw new Error(data.error || "Deployment failed.");
       }
 
-      setApplicationId(data.applicationId);
+      setApplicationId(data.applicationId ?? "");
       setPublicUrl(data.publicUrl ?? "");
       setDomainError(data.domainError ?? "");
 
@@ -175,9 +174,9 @@ export function DeployForm() {
           message: data.message || "Deployment started in Dokploy.",
         },
       ]);
-    } catch (deplyError) {
+    } catch (deployError) {
       setError(
-        deplyError instanceof Error ? deplyError.message : "Deployment failed.",
+        deployError instanceof Error ? deployError.message : "Deployment failed.",
       );
     } finally {
       setDeployLoading(false);
