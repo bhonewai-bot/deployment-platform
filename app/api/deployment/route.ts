@@ -1,7 +1,7 @@
 import { parseGithubRepo } from "@/lib/github";
 import type { EnvVar } from "@/lib/types";
+import { dokployGet } from "@/lib/dokploy";
 import { NextResponse } from "next/server";
-import { dokployGet } from "./status/route";
 
 type DeployBody = {
   repoUrl: string;
@@ -21,6 +21,43 @@ type DomainResult = {
   publicUrl: string | null;
   error: string | null;
 };
+
+function getCurrentDokployHost() {
+  const baseUrl = process.env.DOKPLOY_URL;
+
+  if (!baseUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(baseUrl).hostname;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeGeneratedHost(host: string | null) {
+  if (!host) {
+    return null;
+  }
+
+  const currentHost = getCurrentDokployHost();
+
+  if (
+    !currentHost ||
+    !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(currentHost) ||
+    !host.endsWith(".traefik.me")
+  ) {
+    return host;
+  }
+
+  const dashedIp = currentHost.replace(/\./g, "-");
+
+  return host.replace(
+    /-\d{1,3}(?:-\d{1,3}){3}\.traefik\.me$/,
+    `-${dashedIp}.traefik.me`,
+  );
+}
 
 function normalizePath(path: string) {
   const trimmed = path.trim();
@@ -156,13 +193,21 @@ async function createGeneratedDomain(params: {
       appName: params.appName,
     });
 
-    const host =
-      findHostCandidate(generatedDomain) ||
+    const generatedHost = normalizeGeneratedHost(
+      findHostCandidate(generatedDomain),
+    );
+
+    const existingHost = normalizeGeneratedHost(
       findHostCandidate(
         await dokployGet("domain.byApplicationId", {
           applicationId: params.applicationId,
         }),
-      );
+      ),
+    );
+
+    // Prefer the fresh generated host so we don't keep resurfacing a stale
+    // traefik.me domain from an older server IP.
+    const host = generatedHost || existingHost;
 
     if (!host) {
       throw new Error("Dokploy did not return a generated domain.");
