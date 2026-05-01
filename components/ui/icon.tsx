@@ -5,27 +5,27 @@ import { cn } from "@/lib/utils";
 
 const pathMap: Record<IconName, ReactElement> = {
   folder: (
-    <path
-      d="M3.75 6.75A2.25 2.25 0 0 1 6 4.5h3.19a2.25 2.25 0 0 1 1.59.66l.56.56c.42.42.99.66 1.59.66H18A2.25 2.25 0 0 1 20.25 9v7.5A2.25 2.25 0 0 1 18 18.75H6A2.25 2.25 0 0 1 3.75 16.5V6.75Z"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-    />
+    <>
+      <path
+        d="M3.75 7.5A2.25 2.25 0 0 1 6 5.25h3.19c.6 0 1.17.24 1.59.66l1.12 1.12c.42.42.99.66 1.59.66H18A2.25 2.25 0 0 1 20.25 9.94v6.31A2.25 2.25 0 0 1 18 18.5H6a2.25 2.25 0 0 1-2.25-2.25V7.5Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </>
   ),
   rocket: (
     <>
       <path
-        d="M14.4 4.8c2.66-.54 4.74.34 5.4 1-.66.66-1.54 2.74-1 5.4L12 18l-3.6.6.6-3.6 6.6-6.8Z"
+        d="M14.25 4.5c2.5.47 4.28 2.25 4.75 4.75-.58 2.8-2.43 5.23-5.01 6.58l-2.57-2.57c1.35-2.58 3.78-4.43 6.58-5.01Z"
         fill="none"
         stroke="currentColor"
-        strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.7"
       />
       <path
-        d="M8.4 15.6 5.4 18.6M8.4 8.4 5.4 5.4m0 0c2.4-.6 3.6.6 4.2 1.2m-4.2-1.2L4.2 9.6"
+        d="m10.64 13.36-2.46 2.46a1.5 1.5 0 0 1-1.06.44H4.5v-2.62c0-.4.16-.78.44-1.06l2.46-2.46m2.54 5.26 1.8 3.12m-5.48-1.32 3.12 1.8M14.25 9.75h.01"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -55,18 +55,17 @@ const pathMap: Record<IconName, ReactElement> = {
   settings: (
     <>
       <path
-        d="M12 8.25A3.75 3.75 0 1 1 12 15.75 3.75 3.75 0 0 1 12 8.25Z"
+        d="M12 8.25A3.75 3.75 0 1 0 12 15.75A3.75 3.75 0 1 0 12 8.25Z"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.7"
       />
       <path
-        d="m19.5 12-1.55.51a6.13 6.13 0 0 1-.55 1.32l.72 1.46-1.59 1.59-1.46-.72c-.42.23-.86.41-1.32.55L12 19.5l-1.51-.49a6.13 6.13 0 0 1-1.32-.55l-1.46.72-1.59-1.59.72-1.46a6.13 6.13 0 0 1-.55-1.32L4.5 12l.49-1.51c.14-.46.32-.9.55-1.32l-.72-1.46 1.59-1.59 1.46.72c.42-.23.86-.41 1.32-.55L12 4.5l1.51.49c.46.14.9.32 1.32.55l1.46-.72 1.59 1.59-.72 1.46c.23.42.41.86.55 1.32L19.5 12Z"
+        d="M19.14 12.94a1 1 0 0 0 0-1.88l-1.02-.37a6.95 6.95 0 0 0-.48-1.15l.47-.98a1 1 0 0 0-.23-1.14l-.74-.74a1 1 0 0 0-1.14-.23l-.98.47c-.37-.2-.76-.36-1.15-.48l-.37-1.02a1 1 0 0 0-1.88 0l-.37 1.02c-.39.12-.78.28-1.15.48l-.98-.47a1 1 0 0 0-1.14.23l-.74.74a1 1 0 0 0-.23 1.14l.47.98c-.2.37-.36.76-.48 1.15l-1.02.37a1 1 0 0 0 0 1.88l1.02.37c.12.39.28.78.48 1.15l-.47.98a1 1 0 0 0 .23 1.14l.74.74a1 1 0 0 0 1.14.23l.98-.47c.37.2.76.36 1.15.48l.37 1.02a1 1 0 0 0 1.88 0l.37-1.02c.39-.12.78-.28 1.15-.48l.98.47a1 1 0 0 0 1.14-.23l.74-.74a1 1 0 0 0 .23-1.14l-.47-.98c.2-.37.36-.76.48-1.15l1.02-.37Z"
         fill="none"
         stroke="currentColor"
-        strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.7"
+        strokeWidth="1.4"
       />
     </>
   ),
@@ -147,19 +146,28 @@ const pathMap: Record<IconName, ReactElement> = {
     </>
   ),
   shield: (
-    <path
-      d="M12 3.75c2.07 1.63 4.41 2.52 6.75 2.7v4.36c0 4.44-2.85 7.73-6.75 9.44-3.9-1.71-6.75-5-6.75-9.44V6.45c2.34-.18 4.68-1.07 6.75-2.7Z"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.7"
-    />
+    <>
+      <path
+        d="M12 3.75 5.25 6v4.72c0 3.8 2.37 7.2 5.95 8.53L12 19.5l.8-.25c3.58-1.33 5.95-4.73 5.95-8.53V6L12 3.75Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="m9.75 11.75 1.5 1.5 3-3"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </>
   ),
   history: (
     <>
       <path
-        d="M12 6.75A5.25 5.25 0 1 1 6.75 12"
+        d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -167,7 +175,7 @@ const pathMap: Record<IconName, ReactElement> = {
         strokeWidth="1.7"
       />
       <path
-        d="M6.75 4.5V9H11.25M12 9v3l2.25 1.5"
+        d="M12 8.25V12l2.25 1.5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -179,11 +187,16 @@ const pathMap: Record<IconName, ReactElement> = {
   memory: (
     <>
       <path
-        d="M7.5 7.5h9v9h-9Zm-3 3h3m9 0h3m-15 3h3m9 0h3M9 4.5v3m6-3v3m-6 9v3m6-3v3"
+        d="M7.5 6.75h9A2.25 2.25 0 0 1 18.75 9v6a2.25 2.25 0 0 1-2.25 2.25h-9A2.25 2.25 0 0 1 5.25 15V9A2.25 2.25 0 0 1 7.5 6.75Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M9 9.75h6M9 12h6M9 14.25h3M3.75 9.75h1.5m0 4.5h-1.5m15 0h1.5m-1.5-4.5h1.5M9 4.5V6m6-1.5V6m-6 12v1.5m6-1.5v1.5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
-        strokeLinejoin="round"
         strokeWidth="1.7"
       />
     </>

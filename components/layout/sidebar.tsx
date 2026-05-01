@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Icon } from "@/components/icon";
+import { Icon } from "@/components/ui/icon";
 import { navigationItems } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -32,9 +32,9 @@ export function Sidebar() {
               : "text-zinc-400 hover:bg-white/5 hover:text-white",
           );
 
-          if (item.label === "Deployments") {
+          if (item.href) {
             return (
-              <Link key={item.label} href="/deployment" className={className}>
+              <Link key={item.label} href={item.href} className={className}>
                 {content}
               </Link>
             );
