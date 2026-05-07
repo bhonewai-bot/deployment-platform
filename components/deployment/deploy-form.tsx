@@ -516,10 +516,7 @@ export function DeployForm() {
                             strokeLinejoin="round"
                           />
                           <circle cx="10" cy="10" r="2" />
-                          <path
-                            d="M3 3l14 14"
-                            strokeLinecap="round"
-                          />
+                          <path d="M3 3l14 14" strokeLinecap="round" />
                         </svg>
                       ) : (
                         <svg
@@ -553,10 +550,7 @@ export function DeployForm() {
                         stroke="currentColor"
                         strokeWidth="1.7"
                       >
-                        <path
-                          d="M6 6l8 8M14 6l-8 8"
-                          strokeLinecap="round"
-                        />
+                        <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
                       </svg>
                     </button>
                   </div>
@@ -598,17 +592,7 @@ export function DeployForm() {
                   Deploying...
                 </>
               ) : (
-                <>
-                  <svg
-                    viewBox="0 0 20 20"
-                    aria-hidden="true"
-                    className="size-4"
-                    fill="currentColor"
-                  >
-                    <path d="M10 2a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L10 14.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L2.818 8.123a.75.75 0 0 1 .416-1.28l4.21-.611L9.327 2.418A.75.75 0 0 1 10 2Z" />
-                  </svg>
-                  Deploy
-                </>
+                <>Deploy</>
               )}
             </button>
           </div>
@@ -709,10 +693,7 @@ export function DeployForm() {
 
           {/* ── Logs ─────────────────────────────────────────────── */}
           {(logs.length > 0 || applicationId) && (
-            <DeployLog
-              logs={logs}
-              loading={deploymentStatus === "building"}
-            />
+            <DeployLog logs={logs} loading={deploymentStatus === "building"} />
           )}
         </form>
       ) : null}
@@ -748,7 +729,11 @@ function CopyButton({ value }: { value: string }) {
           stroke="currentColor"
           strokeWidth="2"
         >
-          <path d="M3 8l3.5 3.5L13 4" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M3 8l3.5 3.5L13 4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       ) : (
         <svg
@@ -759,8 +744,18 @@ function CopyButton({ value }: { value: string }) {
           stroke="currentColor"
           strokeWidth="1.7"
         >
-          <rect x="5" y="5" width="8" height="8" rx="1.5" strokeLinejoin="round" />
-          <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" strokeLinejoin="round" />
+          <rect
+            x="5"
+            y="5"
+            width="8"
+            height="8"
+            rx="1.5"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"
+            strokeLinejoin="round"
+          />
         </svg>
       )}
     </button>

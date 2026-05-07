@@ -1,10 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Icon } from "@/components/ui/icon";
 import { navigationItems } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-white/5 bg-[#1c1b1d] p-4 text-sm font-medium tracking-tight">
       <div className="mb-10 px-2 pt-2">
@@ -18,32 +23,22 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-1">
         {navigationItems.map((item) => {
-          const content = (
-            <>
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-            </>
-          );
-
-          const className = cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors duration-200 active:scale-95",
-            item.active
-              ? "bg-white/10 text-white"
-              : "text-zinc-400 hover:bg-white/5 hover:text-white",
-          );
-
-          if (item.href) {
-            return (
-              <Link key={item.label} href={item.href} className={className}>
-                {content}
-              </Link>
-            );
-          }
+          const isActive = pathname === item.href;
 
           return (
-            <div key={item.label} className={className} aria-disabled="true">
-              {content}
-            </div>
+            <Link
+              key={item.label}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors duration-200 active:scale-95",
+                isActive
+                  ? "bg-white/10 text-white"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-white",
+              )}
+            >
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
+            </Link>
           );
         })}
       </nav>

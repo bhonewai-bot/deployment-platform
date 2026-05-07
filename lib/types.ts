@@ -1,5 +1,4 @@
-// ─── UI ──────────────────────────────────────────────────────────────────────
-
+// UI
 export type IconName =
   | "folder"
   | "rocket"
@@ -13,8 +12,7 @@ export type IconName =
   | "history"
   | "memory";
 
-// ─── Environment variables ────────────────────────────────────────────────────
-
+// Environment variables
 export type EnvVar = {
   id: number;
   key: string;
@@ -22,8 +20,7 @@ export type EnvVar = {
   secret?: boolean;
 };
 
-// ─── Deployment logs ─────────────────────────────────────────────────────────
-
+// Deployment logs
 export type LogLevel = "info" | "success" | "debug" | "error";
 
 export type DeploymentLogLine = {
@@ -35,8 +32,7 @@ export type DeploymentLogLine = {
 
 export type DeploymentStatus = "idle" | "building" | "done" | "error";
 
-// ─── Dokploy ─────────────────────────────────────────────────────────────────
-
+// Dokploy
 export type DeployParams = {
   repoUrl: string;
   branch: string;
@@ -59,7 +55,23 @@ export type DeploymentStatusResult = {
   logs: DeploymentLogLine[];
 };
 
-// ─── GitHub ──────────────────────────────────────────────────────────────────
+// Projects
+export type Deployment = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  repoUrl: string;
+  repoName: string;
+  branch: string;
+  rootDirectory: string;
+  deploymentType: string;
+  containerPort: number;
+  applicationId: string;
+  publicUrl: string | null;
+  status: DeploymentStatus;
+};
+
+// GitHub
 export type GithubRepoResponse = {
   name: string;
   full_name: string;

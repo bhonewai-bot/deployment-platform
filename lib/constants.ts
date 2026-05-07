@@ -3,8 +3,8 @@ import type { IconName } from "@/lib/types";
 export const navigationItems: Array<{
   label: string;
   icon: IconName;
-  href?: string;
-  active?: boolean;
+  href: string;
 }> = [
-  { label: "Deployments", icon: "link", href: "/deployments", active: true },
+  { label: "Projects", icon: "folder", href: "/projects" },
+  { label: "Deploy", icon: "rocket", href: "/deployments" },
 ];
