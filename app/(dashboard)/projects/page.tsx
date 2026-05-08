@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/ui/icon";
 import { prisma } from "@/lib/prisma";
-import type { DeploymentStatus } from "@/lib/types";
+import type { DeploymentStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
 // STATUS BADGE

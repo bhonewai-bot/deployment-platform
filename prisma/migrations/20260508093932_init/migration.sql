@@ -1,8 +1,8 @@
 -- CreateTable
 CREATE TABLE "Deployment" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
+    "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "repoUrl" TEXT NOT NULL,
     "repoName" TEXT NOT NULL,
     "branch" TEXT NOT NULL,
@@ -11,7 +11,9 @@ CREATE TABLE "Deployment" (
     "containerPort" INTEGER NOT NULL,
     "applicationId" TEXT NOT NULL,
     "publicUrl" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'building'
+    "status" TEXT NOT NULL DEFAULT 'building',
+
+    CONSTRAINT "Deployment_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

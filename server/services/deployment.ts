@@ -1,7 +1,5 @@
 import "server-only";
 
-import { parseGithubRepo } from "@/lib/github";
-import { dokploy, dokployGet } from "@/lib/dokploy";
 import { AppError, logError, toClientMessage } from "@/lib/errors";
 import type {
   DeployParams,
@@ -10,8 +8,10 @@ import type {
   DeploymentStatus,
   DeploymentStatusResult,
   EnvVar,
-} from "@/lib/types";
-import { prisma } from "./prisma";
+} from "@/types";
+import { dokploy, dokployGet } from "../providers/dokploy";
+import { parseGithubRepo } from "./github";
+import { prisma } from "@/lib/prisma";
 
 type ExistingApplication = {
   applicationId?: string;
@@ -19,12 +19,9 @@ type ExistingApplication = {
   environmentId?: string | null;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Path / name helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
+// PATH / NAME HELPERS
 function normalizePath(path: string): string {
-  // Dokploy expects "." for root, not empty string, "./" or "/"
+  // DOKPLOY EXPECTS "." FOR ROOT, NOT EMPTY STRING, "./" OR "/"
   const trimmed = path.trim();
   if (!trimmed || trimmed === "." || trimmed === "./" || trimmed === "/") {
     return ".";
@@ -33,8 +30,7 @@ function normalizePath(path: string): string {
 }
 
 function toAppName(value: string): string {
-  // Dokploy uses appName as a Docker container name, so it must be
-  // lowercase, alphanumeric with dots/dashes only, and under 63 chars
+  // DOCKER CONTAINER NAME: LOWERCASE, ALPHANUMERIC WITH DOTS/DASHES, MAX 63 CHARS
   return value
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
@@ -45,19 +41,16 @@ function toAppName(value: string): string {
 function buildEnvString(envVars: EnvVar[]): string {
   return (
     envVars
-      // Skip rows where the user left key or value blank
+      // SKIP BLANK KEY OR VALUE ROWS
       .filter((item) => item.key.trim() && item.value.trim())
-      // Skip masked values (bullet placeholder shown in the UI for existing secrets)
+      // SKIP MASKED VALUES (BULLET PLACEHOLDER FOR EXISTING SECRETS)
       .filter((item) => !/^[•]+$/.test(item.value.trim()))
       .map((item) => `${item.key.trim()}=${item.value.trim()}`)
       .join("\n")
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Domain helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
+// DOMAIN HELPERS
 function getDokployHost(): string | null {
   const baseUrl = process.env.DOKPLOY_URL;
   if (!baseUrl) return null;
@@ -78,13 +71,13 @@ function normalizeGeneratedHost(host: string | null): string | null {
   const currentHost = getDokployHost();
   if (
     !currentHost ||
-    // Only rewrite when the server URL is a raw IP, not a hostname
+    // ONLY REWRITE WHEN SERVER URL IS A RAW IP, NOT A HOSTNAME
     !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(currentHost) ||
     !host.endsWith(".traefik.me")
   ) {
     return host;
   }
-  // traefik.me encodes IPs as dashes, e.g. 1.2.3.4 → 1-2-3-4.traefik.me
+  // TRAEFIK.ME ENCODES IPS AS DASHES (e.g. 1.2.3.4 → 1-2-3-4.traefik.me)
   const dashedIp = currentHost.replace(/\./g, "-");
   return host.replace(
     /-\d{1,3}(?:-\d{1,3}){3}\.traefik\.me$/,
@@ -102,7 +95,7 @@ function findHostCandidate(payload: unknown): string | null {
 
   if (typeof payload === "string") {
     const t = payload.trim();
-    // Accept bare hostnames only — skip full URLs since we build the URL ourselves
+    // ACCEPT BARE HOSTNAMES ONLY — SKIP FULL URLS
     if (
       t &&
       !t.startsWith("http://") &&
@@ -124,7 +117,7 @@ function findHostCandidate(payload: unknown): string | null {
 
   if (typeof payload === "object") {
     const record = payload as Record<string, unknown>;
-    // Check the most likely keys first before doing a full object scan
+    // CHECK MOST LIKELY KEYS FIRST BEFORE FULL OBJECT SCAN
     for (const key of ["host", "domain", "url", "fullDomain", "name"]) {
       if (typeof record[key] === "string") {
         const t = (record[key] as string).trim();
@@ -147,10 +140,7 @@ function findHostCandidate(payload: unknown): string | null {
   return null;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Domain creation
-// ─────────────────────────────────────────────────────────────────────────────
-
+// DOMAIN CREATION
 type DomainResult = { publicUrl: string | null; domainError: string | null };
 
 async function createDomain(params: {
@@ -159,6 +149,7 @@ async function createDomain(params: {
   containerPort: number;
 }): Promise<DomainResult> {
   try {
+    // GENERATE DOMAIN
     const generatedDomain = await dokploy("domain.generateDomain", {
       appName: params.appName,
     });
@@ -167,7 +158,7 @@ async function createDomain(params: {
       findHostCandidate(generatedDomain),
     );
 
-    // Fall back to an already-existing domain if Dokploy didn't generate a new one
+    // FALL BACK TO EXISTING DOMAIN IF NONE GENERATED
     const existingHost = normalizeGeneratedHost(
       findHostCandidate(
         await dokployGet("domain.byApplicationId", {
@@ -182,6 +173,7 @@ async function createDomain(params: {
       throw new AppError("Dokploy did not return a generated domain.", 502);
     }
 
+    // REGISTER DOMAIN IN DOKPLOY
     await dokploy("domain.create", {
       host,
       path: "/",
@@ -200,8 +192,7 @@ async function createDomain(params: {
 
     return { publicUrl: `http://${host}`, domainError: null };
   } catch (error) {
-    // Domain creation is non-fatal — the app is still deploying,
-    // we just won't have a public URL to show the user
+    // DOMAIN CREATION IS NON-FATAL — APP STILL DEPLOYS WITHOUT A PUBLIC URL
     logError("deployment/createDomain", error);
     return {
       publicUrl: null,
@@ -210,10 +201,7 @@ async function createDomain(params: {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Status extraction
-// ─────────────────────────────────────────────────────────────────────────────
-
+// STATUS EXTRACTION
 function extractStatus(application: unknown): DeploymentStatus {
   if (!application || typeof application !== "object") return "building";
 
@@ -222,7 +210,7 @@ function extractStatus(application: unknown): DeploymentStatus {
     ? (record.deployments as Array<Record<string, unknown>>)
     : [];
 
-  // Dokploy returns deployments newest-first, so index 0 is the active one
+  // DEPLOYMENTS ARE NEWEST-FIRST — INDEX 0 IS THE ACTIVE ONE
   const latest = deployments[0];
 
   if (latest) {
@@ -233,8 +221,7 @@ function extractStatus(application: unknown): DeploymentStatus {
     const finishedAt =
       typeof latest.finishedAt === "string" ? latest.finishedAt : null;
 
-    // errorMessage being set is more reliable than status === "error"
-    // because Dokploy sometimes leaves status as "running" on failure
+    // CHECK ERROR MESSAGE FIRST — MORE RELIABLE THAN STATUS FIELD
     if (
       hasError ||
       ["failed", "error", "killed", "cancelled"].includes(status)
@@ -244,13 +231,13 @@ function extractStatus(application: unknown): DeploymentStatus {
     if (["running", "queued", "pending", "processing"].includes(status)) {
       return "building";
     }
-    // finishedAt being set means the build runner exited cleanly
+    // FINISHED AT BEING SET MEANS BUILD RUNNER EXITED CLEANLY
     if (finishedAt || ["done", "success", "completed"].includes(status)) {
       return "done";
     }
   }
 
-  // No deployment records yet — fall back to the top-level applicationStatus field
+  // NO DEPLOYMENT RECORDS — FALL BACK TO TOP-LEVEL APPLICATION STATUS
   const appStatus =
     typeof record.applicationStatus === "string"
       ? record.applicationStatus.toLowerCase()
@@ -260,14 +247,11 @@ function extractStatus(application: unknown): DeploymentStatus {
   if (appStatus === "running") return "building";
   if (appStatus === "idle") return "idle";
 
-  // Default to "building" rather than "idle" so the UI keeps polling
+  // DEFAULT TO "BUILDING" SO THE UI KEEPS POLLING
   return "building";
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Log extraction
-// ─────────────────────────────────────────────────────────────────────────────
-
+// LOG EXTRACTION
 type RawLogLine = {
   time: string;
   message: string;
@@ -277,7 +261,7 @@ function extractRawLines(payload: unknown): RawLogLine[] {
   if (!payload) return [];
 
   if (typeof payload === "string") {
-    // Plain text response — split on newlines and wrap each line
+    // PLAIN TEXT RESPONSE — SPLIT ON NEWLINES AND WRAP EACH LINE
     return payload
       .split("\n")
       .map((line) => line.trim())
@@ -294,7 +278,7 @@ function extractRawLines(payload: unknown): RawLogLine[] {
 
       if (item && typeof item === "object") {
         const record = item as Record<string, unknown>;
-        // Try the most common field names Dokploy uses for log content
+        // TRY COMMON FIELD NAMES DOKPLOY USES FOR LOG CONTENT
         const message =
           typeof record.message === "string"
             ? record.message.trim()
@@ -326,7 +310,7 @@ function extractRawLines(payload: unknown): RawLogLine[] {
 
   if (typeof payload === "object") {
     const record = payload as Record<string, unknown>;
-    // Check known wrapper keys before scanning all values
+    // CHECK KNOWN WRAPPER KEYS BEFORE SCANNING ALL VALUES
     for (const key of [
       "logs",
       "log",
@@ -365,7 +349,7 @@ function classifyLogLine(message: string): DeploymentLogLine["level"] {
   ) {
     return "success";
   }
-  // Debug-level lines are typically internal buildkit noise — less important visually
+  // DEBUG LINES ARE INTERNAL BUILDKIT NOISE — LESS IMPORTANT VISUALLY
   if (
     lower.includes("debug") ||
     lower.includes("[internal]") ||
@@ -385,10 +369,7 @@ function buildLogLines(rawLines: RawLogLine[]): DeploymentLogLine[] {
   }));
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Application lookup
-// ─────────────────────────────────────────────────────────────────────────────
-
+// APPLICATION LOOKUP
 function findApplicationId(
   payload: unknown,
   appName: string,
@@ -415,7 +396,7 @@ function findApplicationId(
   if (typeof payload === "object") {
     const record = payload as Record<string, unknown>;
 
-    // Dokploy sometimes wraps results in a named key — unwrap before checking
+    // UNWRAP KNOWN CONTAINER KEYS BEFORE CHECKING
     for (const key of ["items", "applications", "data", "results"]) {
       const nested = findApplicationId(record[key], appName, environmentId);
       if (nested) {
@@ -436,6 +417,7 @@ async function getOrCreateApplicationId(params: {
   appName: string;
   environmentId: string;
 }): Promise<string> {
+  // SEARCH FOR EXISTING APPLICATION
   const existing = await dokployGet("application.search", {
     appName: params.appName,
     environmentId: params.environmentId,
@@ -448,12 +430,12 @@ async function getOrCreateApplicationId(params: {
     params.environmentId,
   );
 
-  // Re-use the existing application instead of creating a duplicate —
-  // re-deploying the same repo should update the same Dokploy application
+  // REUSE EXISTING APPLICATION TO AVOID DUPLICATES
   if (existingApplicationId) {
     return existingApplicationId;
   }
 
+  // CREATE NEW APPLICATION
   const created = (await dokploy("application.create", {
     name: params.repo,
     appName: params.appName,
@@ -467,13 +449,11 @@ async function getOrCreateApplicationId(params: {
   return created.applicationId;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public API
-// ─────────────────────────────────────────────────────────────────────────────
-
+// PUBLIC API
 export async function deployApplication(
   params: DeployParams,
 ): Promise<DeployResult> {
+  // VALIDATE ENVIRONMENT
   const environmentId = process.env.DOKPLOY_ENVIRONMENT_ID;
 
   if (!environmentId) {
@@ -483,17 +463,20 @@ export async function deployApplication(
     );
   }
 
+  // PARSE AND NORMALIZE INPUTS
   const { repo, url } = parseGithubRepo(params.repoUrl);
   const buildPath = normalizePath(params.rootDirectory);
   const appName = toAppName(repo);
   const env = buildEnvString(params.envVars ?? []);
 
+  // GET OR CREATE APPLICATION
   const applicationId = await getOrCreateApplicationId({
     repo,
     appName,
     environmentId,
   });
 
+  // CONFIGURE GIT PROVIDER
   await dokploy("application.saveGitProvider", {
     applicationId,
     customGitUrl: url,
@@ -504,8 +487,9 @@ export async function deployApplication(
     customGitSSHKeyId: null,
   });
 
+  // CONFIGURE BUILD TYPE
   if (params.deploymentType === "dockerfile") {
-    // When rootDirectory is ".", the Dockerfile sits at the repo root
+    // DOCKERFILE PATH: ROOT IF ".", ELSE SUBDIRECTORY
     const dockerfilePath =
       buildPath === "." ? "Dockerfile" : `${buildPath}/Dockerfile`;
     await dokploy("application.saveBuildType", {
@@ -533,6 +517,7 @@ export async function deployApplication(
     });
   }
 
+  // SAVE ENVIRONMENT VARIABLES
   await dokploy("application.saveEnvironment", {
     applicationId,
     env,
@@ -541,10 +526,10 @@ export async function deployApplication(
     createEnvFile: true,
   });
 
-  // Deployment is async in Dokploy — this call just queues the build
+  // QUEUE DEPLOYMENT (ASYNC IN DOKPLOY)
   await dokploy("application.deploy", { applicationId });
 
-  // Use the user-provided port, or default based on build type
+  // RESOLVE CONTAINER PORT
   const resolvedPort =
     typeof params.containerPort === "number" && params.containerPort > 0
       ? params.containerPort
@@ -552,8 +537,7 @@ export async function deployApplication(
         ? 80
         : 3000;
 
-  // Domain creation is attempted after deploy is queued, not after it finishes,
-  // because Dokploy registers the route at container start — not build start
+  // CREATE PUBLIC DOMAIN (AFTER DEPLOY IS QUEUED, NOT AFTER IT FINISHES)
   const domain =
     params.generatePublicUrl === false
       ? { publicUrl: null, domainError: null }
@@ -563,6 +547,7 @@ export async function deployApplication(
           containerPort: resolvedPort,
         });
 
+  // PERSIST DEPLOYMENT RECORD
   await prisma.deployment.create({
     data: {
       repoUrl: params.repoUrl,
@@ -577,6 +562,7 @@ export async function deployApplication(
     },
   });
 
+  // RETURN RESULT
   return {
     applicationId,
     message: "Deployment started in Dokploy.",
@@ -588,13 +574,15 @@ export async function deployApplication(
 export async function fetchDeploymentStatus(
   applicationId: string,
 ): Promise<DeploymentStatusResult> {
+  // VALIDATE INPUT
   if (!applicationId) {
     throw new AppError("applicationId is required.", 400);
   }
 
+  // FETCH APPLICATION STATE
   const application = await dokployGet("application.one", { applicationId });
 
-  // Log fetching is best-effort — a failure here must not break status polling
+  // FETCH LOGS (BEST-EFFORT — FAILURE MUST NOT BREAK STATUS POLLING)
   let logsResponse: unknown = null;
   try {
     logsResponse = await dokployGet("application.readLogs", {
@@ -606,13 +594,13 @@ export async function fetchDeploymentStatus(
     logsResponse = null;
   }
 
+  // EXTRACT STATUS AND LOGS
   const result = {
     status: extractStatus(application),
     logs: buildLogLines(extractRawLines(logsResponse)),
   };
 
-  // Only write to the DB when the deployment has reached a terminal state —
-  // writing on every poll would be unnecessary churn
+  // PERSIST STATUS ON TERMINAL STATE ONLY
   if (result.status === "done" || result.status === "error") {
     await prisma.deployment.update({
       where: { applicationId },

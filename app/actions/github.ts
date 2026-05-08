@@ -1,6 +1,6 @@
 "use server";
 
-import { ImportRepositoryFromGithub } from "@/lib/github";
+import { ImportRepositoryFromGithub } from "@/server/services/github";
 
 export async function importGithubRepoAction(_: unknown, formData: FormData) {
   try {

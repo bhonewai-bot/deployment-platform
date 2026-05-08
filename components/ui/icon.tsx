@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 
-import type { IconName } from "@/lib/types";
+import type { IconName } from "@/types";
 import { cn } from "@/lib/utils";
 
 const pathMap: Record<IconName, ReactElement> = {
@@ -18,14 +18,23 @@ const pathMap: Record<IconName, ReactElement> = {
   rocket: (
     <>
       <path
-        d="M14.25 4.5c2.5.47 4.28 2.25 4.75 4.75-.58 2.8-2.43 5.23-5.01 6.58l-2.57-2.57c1.35-2.58 3.78-4.43 6.58-5.01Z"
+        d="M12 2.5c0 0-4.5 3.5-4.5 8.5 0 1.5.5 3 1.5 4l1 1c1 1 2.5 1.5 4 1.5 5-1 8.5-4.5 8.5-4.5S21 8 18 5s-6-2.5-6-2.5Z"
         fill="none"
         stroke="currentColor"
+        strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.7"
       />
       <path
-        d="m10.64 13.36-2.46 2.46a1.5 1.5 0 0 1-1.06.44H4.5v-2.62c0-.4.16-.78.44-1.06l2.46-2.46m2.54 5.26 1.8 3.12m-5.48-1.32 3.12 1.8M14.25 9.75h.01"
+        d="M14.5 9.5h.01"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M7.5 13.5 4 17v3h3l3.5-3.5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"

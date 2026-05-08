@@ -1,4 +1,4 @@
-import type { IconName } from "@/lib/types";
+import { IconName } from "@/types";
 
 export const navigationItems: Array<{
   label: string;

@@ -1,9 +1,12 @@
+import "server-only";
+
 import { AppError } from "@/lib/errors";
 
 function getConfig() {
   const baseUrl = process.env.DOKPLOY_URL;
   const apiKey = process.env.DOKPLOY_KEY;
 
+  // REQUIRE BOTH ENV VARS TO BE SET
   if (!baseUrl || !apiKey) {
     throw new AppError(
       "Dokploy is not configured. Set DOKPLOY_URL and DOKPLOY_KEY on the server.",
@@ -21,6 +24,7 @@ function buildErrorMessage(data: unknown): string {
 
   const record = data as Record<string, unknown>;
 
+  // APPEND VALIDATION ISSUES IF PRESENT
   const issues =
     Array.isArray(record.issues) && record.issues.length > 0
       ? ` ${record.issues
@@ -51,6 +55,7 @@ async function dokployFetch(
   let url = `${baseUrl}/${path}`;
   let body: string | undefined;
 
+  // BUILD QUERY STRING FOR GET, JSON BODY FOR POST
   if (method === "GET" && payload && typeof payload === "object") {
     const params = new URLSearchParams();
 
@@ -68,6 +73,7 @@ async function dokployFetch(
     body = JSON.stringify(payload);
   }
 
+  // SEND REQUEST
   const response = await fetch(url, {
     method,
     headers,
@@ -77,6 +83,7 @@ async function dokployFetch(
 
   const data = await response.json().catch(() => null);
 
+  // THROW ON ERROR RESPONSE
   if (!response.ok) {
     throw new AppError(buildErrorMessage(data), 502);
   }

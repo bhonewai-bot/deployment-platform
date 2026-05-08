@@ -1,9 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model Deployment {
@@ -27,4 +28,6 @@ model Deployment {
 
   // Status: "building" | "done" | "error" | "idle"
   status         String   @default("building")
+
+  @@map("deployments")
 }

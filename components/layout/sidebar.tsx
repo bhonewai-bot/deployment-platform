@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Icon } from "@/components/ui/icon";
-import { navigationItems } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { navigationItems } from "@/config/navigation";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -23,7 +23,10 @@ export function Sidebar() {
 
       <nav className="flex flex-1 flex-col gap-1">
         {navigationItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            item.href === "/"
+              ? pathname === "/"
+              : pathname === item.href || pathname.startsWith(item.href + "/");
 
           return (
             <Link

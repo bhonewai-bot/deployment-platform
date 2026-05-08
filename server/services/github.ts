@@ -1,14 +1,15 @@
 import "server-only";
 
-import { AppError } from "./errors";
+import { AppError } from "@/lib/errors";
 import {
   GithubBranchResponse,
   GithubContentItem,
   GithubRepoResponse,
   ImportRepoResult,
-} from "./types";
+} from "@/types";
 
 async function githubFetch<T>(path: string): Promise<T> {
+  // SEND REQUEST WITH OPTIONAL AUTH TOKEN
   const response = await fetch(`https://api.github.com/${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -19,6 +20,7 @@ async function githubFetch<T>(path: string): Promise<T> {
     cache: "no-store",
   });
 
+  // HANDLE ERROR RESPONSES
   if (!response.ok) {
     if (response.status === 404) {
       throw new AppError("Repository not found.");
@@ -39,6 +41,7 @@ function detectDeploymentType(
 ): "dockerfile" | "static" | "unknown" {
   const names = new Set(contents.map((item) => item.name.toLowerCase()));
 
+  // CHECK FOR DOCKERFILE FIRST, THEN STATIC ENTRY POINT
   if (names.has("dockerfile")) return "dockerfile";
   if (names.has("index.html")) return "static";
 
@@ -48,8 +51,10 @@ function detectDeploymentType(
 export async function ImportRepositoryFromGithub(
   repoUrl: unknown,
 ): Promise<ImportRepoResult> {
+  // VALIDATE INPUT
   const { owner, repo, url } = validateImportRepoInput(repoUrl);
 
+  // FETCH REPO INFO, BRANCHES, AND ROOT CONTENTS IN PARALLEL
   const [repoInfo, branches, contents] = await Promise.all([
     githubFetch<GithubRepoResponse>(`repos/${owner}/${repo}`),
     githubFetch<GithubBranchResponse>(
@@ -58,6 +63,7 @@ export async function ImportRepositoryFromGithub(
     githubFetch<GithubContentItem[]>(`repos/${owner}/${repo}/contents`),
   ]);
 
+  // RETURN RESULT
   return {
     repo: {
       name: repoInfo.name,
@@ -78,10 +84,12 @@ export function parseGithubRepo(repoUrl: string) {
   try {
     const url = new URL(repoUrl);
 
+    // VALIDATE GITHUB HOSTNAME
     if (url.hostname !== "github.com") {
       throw new Error("Please enter a valid GitHub repository URL.");
     }
 
+    // EXTRACT OWNER AND REPO FROM PATH
     const parts = url.pathname
       .replace(/\.git$/, "")
       .split("/")
@@ -105,6 +113,7 @@ export function parseGithubRepo(repoUrl: string) {
 }
 
 function validateImportRepoInput(repoUrl: unknown) {
+  // REQUIRE NON-EMPTY STRING
   if (typeof repoUrl !== "string" || repoUrl.trim().length === 0) {
     throw new Error("Repository URL is required.");
   }
