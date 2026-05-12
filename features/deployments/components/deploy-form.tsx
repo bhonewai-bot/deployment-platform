@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  DeployResult,
-  EnvVar,
-  ImportedRepo,
-  ImportRepoResult,
-} from "@/lib/types";
+import { DeployResult, EnvVar } from "@/features/deployments/types";
 import { useActionState, useEffect, useState } from "react";
 import { DeployLog, DeploymentLogLine } from "./deploy-log";
-import { importGithubRepoAction } from "@/app/actions/github";
+import { importGithubRepoAction } from "@/features/github/server/import-repository.action";
+import { ImportRepoResult } from "@/features/github/types";
 
 const initialState = {
   success: false,
@@ -18,28 +14,43 @@ const initialState = {
 
 export function DeployForm() {
   const [repo, setRepo] = useState("");
-  const [branch, setBranch] = useState("");
-  const [rootDirectory, setRootDirectory] = useState("./");
-  const [branches, setBranches] = useState<string[]>([]);
-  const [repoInfo, setRepoInfo] = useState<ImportedRepo | null>(null);
-  const [deploymentType, setDeploymentType] = useState<
-    "dockerfile" | "static" | "unknown"
-  >("unknown");
 
   const [importState, importAction, importPending] = useActionState(
     importGithubRepoAction,
     initialState,
   );
 
-  useEffect(() => {
-    if (!importState.success || !importState.data) return;
+  // Derive read-only values directly from importState — no useEffect mirror needed.
+  const importedData = importState.success ? importState.data : null;
+  const repoInfo = importedData?.repo ?? null;
+  const branches = importedData?.branches ?? [];
+  const rootDirectory = importedData?.rootDirectory ?? "./";
 
-    setRepoInfo(importState.data.repo);
-    setBranches(importState.data.branches ?? []);
-    setBranch(importState.data.defaultBranch ?? "");
-    setRootDirectory(importState.data.rootDirectory ?? "./");
-    setDeploymentType(importState.data.detectedDeploymentType ?? "unknown");
-  }, [importState]);
+  // branch and deploymentType are user-editable after import, so they stay as state.
+  // Reset them when a new import arrives via key — but since useActionState replaces
+  // the state object on every action, we use the defaultBranch/detectedType as the
+  // initial value for controlled inputs, overriding when importState changes.
+  const defaultBranch = importedData?.defaultBranch ?? "";
+  const detectedType = importedData?.detectedDeploymentType ?? "unknown";
+
+  const [branch, setBranch] = useState("");
+  const [deploymentType, setDeploymentType] = useState<
+    "dockerfile" | "static" | "unknown"
+  >("unknown");
+
+  // Sync branch and deploymentType when a new import result arrives.
+  // This is the correct use of useEffect: synchronising two pieces of React state
+  // where one (branch/deploymentType) must remain user-editable after the sync.
+  const [lastImportKey, setLastImportKey] = useState<string | null>(null);
+  const importKey = importedData ? (importedData.repo?.fullName ?? null) : null;
+
+  if (importKey !== null && importKey !== lastImportKey) {
+    // Synchronous state update during render (React 18+ pattern) — runs once per
+    // new import result without triggering an extra render cycle.
+    setLastImportKey(importKey);
+    setBranch(defaultBranch);
+    setDeploymentType(detectedType);
+  }
 
   const [applicationId, setApplicationId] = useState("");
   const [logs, setLogs] = useState<DeploymentLogLine[]>([]);
@@ -51,12 +62,8 @@ export function DeployForm() {
   const [publicUrl, setPublicUrl] = useState("");
   const [domainError, setDomainError] = useState("");
   const generatePublicUrl = true;
-  const [containerPort, setContainerPort] = useState("3000");
+  const containerPort = deploymentType === "static" ? "80" : "3000";
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
-
-  useEffect(() => {
-    setContainerPort(deploymentType === "static" ? "80" : "3000");
-  }, [deploymentType]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -162,12 +169,12 @@ export function DeployForm() {
         if (data.status === "done" || data.status === "error") {
           clearInterval(interval);
         }
-      } catch (error) {
+      } catch (pollError) {
         if (!cancelled) {
           setDeploymentStatus("error");
           setError(
-            error instanceof Error
-              ? error.message
+            pollError instanceof Error
+              ? pollError.message
               : "Failed to load development logs.",
           );
           clearInterval(interval);
@@ -312,7 +319,7 @@ export function DeployForm() {
                   value={branch}
                   onChange={(event) => setBranch(event.target.value)}
                 >
-                  {branches?.map((item) => (
+                  {branches.map((item) => (
                     <option key={item}>{item}</option>
                   ))}
                 </select>
@@ -389,7 +396,7 @@ export function DeployForm() {
                   <label className="font-mono text-xs uppercase tracking-widest text-on-surface-variant/0 select-none">
                     &nbsp;
                   </label>
-                  <div className="flex h-[46px] items-center gap-2 rounded-lg border border-[#4c5f84]/40 bg-surface-container-low/60 px-4 opacity-60 cursor-not-allowed select-none">
+                  <div className="flex h-11.5 items-center gap-2 rounded-lg border border-[#4c5f84]/40 bg-surface-container-low/60 px-4 opacity-60 cursor-not-allowed select-none">
                     <svg
                       viewBox="0 0 20 20"
                       aria-hidden="true"
@@ -491,7 +498,7 @@ export function DeployForm() {
                     />
                     {/* Toggle secret/visible */}
                     <button
-                      className={`flex h-[38px] w-full items-center justify-center gap-1 rounded-lg border text-[11px] font-bold uppercase tracking-wide transition-all active:scale-95 ${
+                      className={`flex h-9.5 w-full items-center justify-center gap-1 rounded-lg border text-[11px] font-bold uppercase tracking-wide transition-all active:scale-95 ${
                         item.secret
                           ? "border-[#4c5f84] bg-surface-container-low text-on-surface-variant hover:border-[#7fb0ff] hover:text-on-surface"
                           : "border-[#7fb0ff]/60 bg-[#2563eb]/10 text-primary"
@@ -537,7 +544,7 @@ export function DeployForm() {
                     </button>
                     {/* Remove */}
                     <button
-                      className="flex h-[38px] w-full items-center justify-center rounded-lg border border-[#4c5f84] bg-surface-container-low text-zinc-500 transition-all hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 active:scale-95"
+                      className="flex h-9.5 w-full items-center justify-center rounded-lg border border-[#4c5f84] bg-surface-container-low text-zinc-500 transition-all hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 active:scale-95"
                       type="button"
                       title="Remove variable"
                       onClick={() => removeVariable(item.id)}
@@ -618,8 +625,7 @@ export function DeployForm() {
 
           {/* ── Public URL card ───────────────────────────────────── */}
           {publicUrl ? (
-            <div className="relative overflow-hidden rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent p-5">
-              {/* Glow accent */}
+            <div className="relative overflow-hidden rounded-xl border border-emerald-400/20 bg-linear-to-br from-emerald-500/10 via-teal-500/5 to-transparent p-5">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-emerald-400/10 blur-2xl"
@@ -628,7 +634,6 @@ export function DeployForm() {
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    {/* Live pulse dot */}
                     <span className="relative flex size-2.5">
                       <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                       <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400" />
@@ -663,8 +668,6 @@ export function DeployForm() {
                     </svg>
                   </a>
                 </div>
-
-                {/* Copy button */}
                 <CopyButton value={publicUrl} />
               </div>
             </div>

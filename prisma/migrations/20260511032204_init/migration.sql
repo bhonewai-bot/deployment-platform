@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "Deployment" (
+CREATE TABLE "deployments" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -13,8 +13,8 @@ CREATE TABLE "Deployment" (
     "publicUrl" TEXT,
     "status" TEXT NOT NULL DEFAULT 'building',
 
-    CONSTRAINT "Deployment_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "deployments_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Deployment_applicationId_key" ON "Deployment"("applicationId");
+CREATE UNIQUE INDEX "deployments_applicationId_key" ON "deployments"("applicationId");

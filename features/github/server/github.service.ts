@@ -6,7 +6,7 @@ import {
   GithubContentItem,
   GithubRepoResponse,
   ImportRepoResult,
-} from "@/types";
+} from "@/features/github/types";
 
 async function githubFetch<T>(path: string): Promise<T> {
   // SEND REQUEST WITH OPTIONAL AUTH TOKEN

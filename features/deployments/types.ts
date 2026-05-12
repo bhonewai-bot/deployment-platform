@@ -1,18 +1,3 @@
-// UI
-export type IconName =
-  | "folder"
-  | "rocket"
-  | "terminal"
-  | "settings"
-  | "notification"
-  | "help"
-  | "sparkles"
-  | "link"
-  | "shield"
-  | "history"
-  | "memory";
-
-// Environment variables
 export type EnvVar = {
   id: number;
   key: string;
@@ -20,7 +5,6 @@ export type EnvVar = {
   secret?: boolean;
 };
 
-// Deployment logs
 export type LogLevel = "info" | "success" | "debug" | "error";
 
 export type DeploymentLogLine = {
@@ -32,7 +16,6 @@ export type DeploymentLogLine = {
 
 export type DeploymentStatus = "idle" | "building" | "done" | "error";
 
-// Dokploy
 export type DeployParams = {
   repoUrl: string;
   branch: string;
@@ -55,7 +38,6 @@ export type DeploymentStatusResult = {
   logs: DeploymentLogLine[];
 };
 
-// Projects
 export type Deployment = {
   id: string;
   createdAt: string;
@@ -69,38 +51,4 @@ export type Deployment = {
   applicationId: string;
   publicUrl: string | null;
   status: DeploymentStatus;
-};
-
-// GitHub
-export type GithubRepoResponse = {
-  name: string;
-  full_name: string;
-  default_branch: string;
-  private: boolean;
-  description: string | null;
-};
-
-export type GithubBranchResponse = Array<{ name: string }>;
-
-export type GithubContentItem = {
-  name: string;
-  path: string;
-  type: "file" | "dir";
-};
-
-export type ImportedRepo = {
-  name: string;
-  fullName: string;
-  description: string | null;
-  private: boolean;
-  url: string;
-};
-
-export type ImportRepoResult = {
-  repo: ImportedRepo;
-  branches: string[];
-  defaultBranch: string;
-  rootDirectory: string;
-  detectedDeploymentType: "dockerfile" | "static" | "unknown";
-  detectedFiles: string[];
 };

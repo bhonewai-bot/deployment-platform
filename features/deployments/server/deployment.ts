@@ -1,6 +1,5 @@
 import "server-only";
 
-import { AppError, logError, toClientMessage } from "@/lib/errors";
 import type {
   DeployParams,
   DeployResult,
@@ -8,10 +7,11 @@ import type {
   DeploymentStatus,
   DeploymentStatusResult,
   EnvVar,
-} from "@/types";
-import { dokploy, dokployGet } from "../providers/dokploy";
-import { parseGithubRepo } from "./github";
+} from "@/features/deployments/types";
+import { dokploy, dokployGet } from "./dokploy-client";
+import { parseGithubRepo } from "@/features/github/server/github.service";
 import { prisma } from "@/lib/prisma";
+import { AppError, logError, toClientMessage } from "@/lib/errors";
 
 type ExistingApplication = {
   applicationId?: string;

@@ -1,4 +1,4 @@
-import { DeployForm } from "@/components/deployment/deploy-form";
+import { DeployForm } from "@/features/deployments/components/deploy-form";
 import { Icon } from "@/components/ui/icon";
 
 export default function Page() {

@@ -1,7 +1,18 @@
 import type { ReactElement } from "react";
-
-import type { IconName } from "@/types";
 import { cn } from "@/lib/utils";
+
+export type IconName =
+  | "folder"
+  | "rocket"
+  | "terminal"
+  | "settings"
+  | "notification"
+  | "help"
+  | "sparkles"
+  | "link"
+  | "shield"
+  | "history"
+  | "memory";
 
 const pathMap: Record<IconName, ReactElement> = {
   folder: (

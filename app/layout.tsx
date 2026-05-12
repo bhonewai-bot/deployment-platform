@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
-import { Sidebar } from "@/components/layout/sidebar";
 import "./styles/globals.css";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Deploy to Dokploy | Monolithic Void",
@@ -14,11 +17,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full">
-        <Sidebar />
-        {children}
-      </body>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={cn("h-full antialiased", "font-sans", geist.variable)}
+    >
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }
