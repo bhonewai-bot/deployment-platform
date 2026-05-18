@@ -12,7 +12,16 @@ export type IconName =
   | "link"
   | "shield"
   | "history"
-  | "memory";
+  | "memory"
+  | "bell"
+  | "chevron-right"
+  | "chevron-down"
+  | "lock"
+  | "plus"
+  | "search"
+  | "book"
+  | "message-square"
+  | "log-out";
 
 const pathMap: Record<IconName, ReactElement> = {
   folder: (
@@ -202,6 +211,45 @@ const pathMap: Record<IconName, ReactElement> = {
         strokeLinejoin="round"
         strokeWidth="1.7"
       />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M12 4.5A4.5 4.5 0 0 0 7.5 9v1.11c0 .6-.2 1.18-.57 1.65L5.25 13.88v1.62h13.5v-1.62l-1.68-2.12a2.64 2.64 0 0 1-.57-1.65V9A4.5 4.5 0 0 0 12 4.5Z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="M10.13 18a2.25 2.25 0 0 0 3.74 0" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </>
+  ),
+  "chevron-right": (
+    <path d="M9 18l6-6-6-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+  ),
+  "chevron-down": (
+    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+  ),
+  lock: (
+    <>
+      <rect x="5.25" y="10.25" width="13.5" height="9" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8.25 10.25V7.5a3.75 3.75 0 0 1 7.5 0v2.75" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </>
+  ),
+  plus: (
+    <path d="M12 5.25v13.5M5.25 12h13.5" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+  ),
+  search: (
+    <>
+      <path d="M10.5 18a7.5 7.5 0 1 0 0-15 7.5 7.5 0 0 0 0 15Z" stroke="currentColor" strokeWidth="1.7" />
+      <path d="m16 16 4.25 4.25" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+    </>
+  ),
+  book: (
+    <path d="M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5v18H6.75a2.25 2.25 0 0 1-2.25-2.25V5.25Zm0 0v13.5m7.5-13.5v18" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+  ),
+  "message-square": (
+    <path d="M4.5 5.25A2.25 2.25 0 0 1 6.75 3h10.5A2.25 2.25 0 0 1 19.5 5.25v9A2.25 2.25 0 0 1 17.25 16.5H8.25L4.5 20.25V5.25Z" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+  ),
+  "log-out": (
+    <>
+      <path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="M18.75 12H9m9.75 0-3-3m3 3-3 3" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
     </>
   ),
   memory: (

@@ -1,159 +1,213 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+
+import { Card, CardContent } from "@/components/ui/card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Icon } from "@/components/ui/icon";
+import { ConnectGitHubEmptyState } from "@/features/projects/components/connect-github-empty-state";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { DeploymentStatus } from "@/features/deployments/types";
 import { cn } from "@/lib/utils";
 
-// STATUS BADGE
-function StatusBadge({ status }: { status: DeploymentStatus }) {
-  const styles: Record<DeploymentStatus, string> = {
-    done: "bg-emerald-500/10 text-emerald-400 ring-emerald-500/20",
-    building: "bg-yellow-500/10 text-yellow-400 ring-yellow-500/20",
-    error: "bg-red-500/10 text-red-400 ring-red-500/20",
-    idle: "bg-zinc-500/10 text-zinc-400 ring-zinc-500/20",
-  };
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-  const dots: Record<DeploymentStatus, string> = {
-    done: "bg-emerald-400",
-    building: "bg-yellow-400 animate-pulse",
-    error: "bg-red-400",
-    idle: "bg-zinc-400",
-  };
+type DeploymentStatus = "live" | "building" | "ready" | "failed";
 
+interface RecentDeployment {
+  id: string;
+  repo: string;
+  branch: string;
+  commitSha: string;
+  status: DeploymentStatus;
+  time: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  repoName: string;
+  defaultBranch: string;
+  recentDeployments: RecentDeployment[];
+}
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
+
+const statusConfig: Record<DeploymentStatus, { label: string; dot: string }> = {
+  live: { label: "Live", dot: "bg-green-500" },
+  building: { label: "Building", dot: "bg-amber-400" },
+  ready: { label: "Ready", dot: "bg-zinc-400" },
+  failed: { label: "Failed", dot: "bg-red-500" },
+};
+
+function StatusDot({ status }: { status: DeploymentStatus }) {
+  const { dot, label } = statusConfig[status];
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
-        styles[status],
-      )}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", dots[status])} />
-      {status}
+    <span className="flex items-center gap-1.5">
+      <span className={`size-2 rounded-full ${dot}`} />
+      <span className="text-xs text-muted-foreground">{label}</span>
     </span>
   );
 }
 
-// RELATIVE TIME
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+// ─── Project card ─────────────────────────────────────────────────────────────
+
+function ProjectCard({ project }: { project: Project }) {
+  const latest = project.recentDeployments[0];
+
+  return (
+    <Link href={`/projects/${project.id}`}>
+      <Card className="group h-40 cursor-pointer border border-border bg-card shadow-xs transition-colors hover:border-foreground/20">
+        <CardContent className="flex h-full flex-col justify-between py-5">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              {latest ? (
+                <StatusDot status={latest.status} />
+              ) : (
+                <span className="text-xs text-muted-foreground">No runs</span>
+              )}
+              {latest && (
+                <span className="text-xs text-muted-foreground">
+                  {latest.time}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <h4 className="truncate text-sm font-semibold text-foreground">
+            {project.name}
+          </h4>
+
+          <Separator className="my-1" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 rounded bg-muted px-2 py-1">
+              <Icon name="history" className="size-3 text-muted-foreground" />
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {latest?.branch ?? project.defaultBranch}
+              </span>
+            </div>
+            {latest && (
+              <span className="font-mono text-[11px] text-muted-foreground">
+                {latest.commitSha}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
 }
 
-// EMPTY STATE
-function EmptyState() {
+// ─── Projects list state ──────────────────────────────────────────────────────
+
+function ProjectsState({ projects }: { projects: Project[] }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-20 text-center">
-      <div className="mb-4 rounded-full bg-white/5 p-4">
-        <Icon name="rocket" className="size-6 text-zinc-500" />
+    <div className="flex flex-col gap-8">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Projects
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage and monitor your active deployment workflows.
+          </p>
+        </div>
+        <Link
+          href="/projects/new"
+          className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}
+        >
+          <Icon name="plus" className="size-4" />
+          New Project
+        </Link>
       </div>
-      <p className="mb-1 text-sm font-medium text-zinc-300">
-        No deployments yet
-      </p>
-      <p className="mb-6 text-xs text-zinc-500">
-        Deploy your first project to see it here.
-      </p>
-      <Link
-        href="/deployments"
-        className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-      >
-        Deploy a project
-      </Link>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Recent Deployments
+          </p>
+          <Button variant="ghost" size="sm">
+            <Link href="/deployments">View All</Link>
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {projects.map((project) => (
+            <ProjectCard key={project.id} project={project} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
 
-// PAGE
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default async function ProjectsPage() {
-  const deployments = await prisma.deployment.findMany({
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    return null;
+  }
+
+  const projects = await prisma.project.findMany({
+    where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
+    include: {
+      deploymentRuns: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
   });
 
+  if (projects.length === 0) {
+    return <ConnectGitHubEmptyState />;
+  }
+
   return (
-    <div className="min-h-screen bg-surface text-on-surface">
-      <main className="ml-64 min-h-screen px-8 pb-12 pt-6">
-        <div className="mx-auto max-w-4xl">
-          {/* HEADER */}
-          <header className="mb-8 flex items-end justify-between">
-            <div>
-              <div className="mb-2 flex items-center gap-3 text-on-surface-variant">
-                <Icon name="folder" className="size-4" />
-                <span className="font-mono text-xs uppercase tracking-[0.2em]">
-                  Projects
-                </span>
-              </div>
-              <h2 className="text-4xl font-extrabold leading-none tracking-tight text-white">
-                All Deployments
-              </h2>
-            </div>
+    <ProjectsState
+      projects={projects.map((project): Project => {
+        const latest = project.deploymentRuns[0];
 
-            <Link
-              href="/deployments"
-              className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/15"
-            >
-              <Icon name="rocket" className="size-4" />
-              New deployment
-            </Link>
-          </header>
-
-          {/* LIST */}
-          {deployments.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="flex flex-col gap-3">
-              {deployments.map((d) => (
-                <div
-                  key={d.id}
-                  className="relative overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-high p-5 transition hover:border-white/10"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    {/* LEFT — REPO INFO */}
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center gap-2">
-                        <Icon
-                          name="folder"
-                          className="size-4 shrink-0 text-zinc-400"
-                        />
-                        <span className="truncate font-semibold text-white">
-                          {d.repoName}
-                        </span>
-                        <StatusBadge status={d.status as DeploymentStatus} />
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-                        <span className="flex items-center gap-1">
-                          <Icon name="history" className="size-3" />
-                          {d.branch}
-                        </span>
-                        <span>{d.deploymentType}</span>
-                        <span>{timeAgo(new Date(d.createdAt))}</span>
-                      </div>
-                    </div>
-
-                    {/* RIGHT — PUBLIC URL */}
-                    {d.publicUrl && (
-                      <a
-                        href={d.publicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex shrink-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-zinc-300 transition hover:border-white/20 hover:text-white"
-                      >
-                        <Icon name="link" className="size-3" />
-                        Visit
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+        return {
+          id: project.id,
+          name: project.name,
+          repoName: project.repoName,
+          defaultBranch: project.defaultBranch,
+          recentDeployments: latest
+            ? [
+                {
+                  id: latest.id,
+                  repo: project.repoName,
+                  branch: latest.branch,
+                  commitSha: latest.commitSha ?? "pending",
+                  status: toDeploymentStatus(latest.status),
+                  time: formatRelativeTime(latest.createdAt),
+                },
+              ]
+            : [],
+        };
+      })}
+    />
   );
+}
+
+function toDeploymentStatus(status: string): DeploymentStatus {
+  if (status === "building" || status === "failed") return status;
+  if (status === "success") return "live";
+  return "ready";
+}
+
+function formatRelativeTime(value: Date) {
+  const diffMs = Date.now() - value.getTime();
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60_000));
+
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
 }

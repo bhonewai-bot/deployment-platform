@@ -7,175 +7,217 @@ import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
+const steps = [
+  { label: "Connect GitHub", step: "01" },
+  { label: "Select repository", step: "02" },
+  { label: "Configure environment", step: "03" },
+  { label: "Deploy with Dokploy", step: "04" },
+];
+
+const meta = [
+  ["Source", "GitHub"],
+  ["Build", "Dockerfile · static"],
+  ["Runtime", "Dokploy"],
+  ["State", "PostgreSQL"],
+];
+
+const highlights = [
+  {
+    icon: "shield" as const,
+    title: "Identity first",
+    description:
+      "Every project, environment, and deployment is owned by a verified user. Nothing is accessible without a session.",
+  },
+  {
+    icon: "terminal" as const,
+    title: "Explicit build contract",
+    description:
+      "Dockerfile and static sites are supported out of the box. No implicit framework detection in the critical path.",
+  },
+  {
+    icon: "history" as const,
+    title: "Full run history",
+    description:
+      "Each deployment records the branch, mode, Dokploy response, status, and public URL for auditing and debugging.",
+  },
+];
+
 export default async function LandingPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (session) {
-    redirect("/dashboard");
+    redirect("/projects");
   }
 
   return (
-    <main className="relative flex min-h-screen flex-col overflow-hidden bg-surface text-on-surface">
-      {/* Background glow accents */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        <div className="absolute -left-40 -top-40 h-150 w-150 rounded-full bg-primary/10 blur-[140px]" />
-        <div className="absolute -right-40 bottom-0 h-125 w-125 rounded-full bg-primary/8 blur-[120px]" />
-      </div>
+    <main className="min-h-screen bg-[#101214] text-on-surface">
+      {/* ── Hero ──────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-b border-white/10">
+        {/* Grid texture */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-size-[44px_44px] opacity-30"
+        />
+        {/* Radial glow */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(62,165,132,0.18),transparent_50%),linear-gradient(180deg,transparent,rgba(16,18,20,0.96)_80%)]"
+        />
 
-      {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between border-b border-outline-variant/20 px-6 py-4 lg:px-10">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-7 items-center justify-center rounded-md bg-primary/20">
-            <Icon name="rocket" className="size-4 text-primary" />
+        {/* Nav */}
+        <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
+              <Icon name="rocket" className="size-4" />
+            </span>
+            <span className="text-sm font-semibold tracking-tight text-white">
+              Gori Lab
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+            >
+              Log in
+            </Link>
+            <Link
+              href="/sign-up"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Create account
+            </Link>
           </div>
-          <span className="font-semibold tracking-tight text-on-surface">
-            Monolithic Void
-          </span>
-        </div>
+        </nav>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-          >
-            Login
-          </Link>
-          <Link href="/sign-up" className={cn(buttonVariants({ size: "sm" }))}>
-            Get started
-          </Link>
-        </div>
-      </nav>
+        {/* Hero body */}
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 pb-20 pt-14 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8 lg:pb-28 lg:pt-24">
+          {/* Left */}
+          <div className="flex flex-col justify-center">
+            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-md border border-white/10 bg-white/4 px-3 py-1.5">
+              <span className="size-1.5 rounded-full bg-primary" />
+              <span className="font-mono text-xs uppercase tracking-widest text-on-surface-variant">
+                GitHub → Dokploy control plane
+              </span>
+            </div>
 
-      {/* Hero */}
-      <section className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-24 text-center lg:py-36">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-outline-variant/30 bg-surface-container-low px-3.5 py-1.5">
-          <Icon name="sparkles" className="size-3.5 text-primary" />
-          <span className="font-mono text-xs tracking-wide text-on-surface-variant">
-            GitHub → Dokploy — simplified
-          </span>
-        </div>
+            <h1 className="max-w-2xl text-[3.25rem] font-black leading-[0.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
+              Deploy from GitHub.
+              <br />
+              <span className="text-primary">One control plane.</span>
+            </h1>
 
-        <h1 className="mx-auto max-w-3xl text-5xl font-extrabold leading-[1.08] tracking-tight text-on-surface lg:text-6xl">
-          Deploy your repos.{" "}
-          <span className="text-primary">Without the ceremony.</span>
-        </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-on-surface-variant sm:text-lg">
+              Connect your repository, set up environments and secrets, then
+              send builds to Dokploy — all from a single protected workspace.
+            </p>
 
-        <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-on-surface-variant">
-          Connect GitHub, select a repository, configure your environment, and
-          ship — all from one control plane backed by Dokploy.
-        </p>
-
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <Link
-            href="/sign-up"
-            className={cn(buttonVariants({ size: "lg" }), "gap-2")}
-          >
-            <Icon name="rocket" className="size-4" />
-            Start deploying
-          </Link>
-          <Link
-            href="/login"
-            className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
-          >
-            Log in
-          </Link>
-        </div>
-      </section>
-
-      {/* Feature grid */}
-      <section className="relative z-10 border-t border-outline-variant/20 px-6 py-20 lg:px-10">
-        <div className="mx-auto max-w-5xl">
-          <p className="mb-10 text-center font-mono text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-            Everything you need to ship
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="rounded-xl border border-outline-variant/15 bg-surface-container-low p-6 transition-colors hover:border-outline-variant/30 hover:bg-surface-container"
+            <div className="mt-9 flex flex-wrap gap-3">
+              <Link
+                href="/sign-up"
+                className={cn(buttonVariants({ size: "lg" }), "gap-2")}
               >
-                <div className="mb-4 inline-flex size-9 items-center justify-center rounded-lg bg-primary/10">
-                  <Icon name={feature.icon} className="size-4 text-primary" />
-                </div>
-                <h3 className="mb-1.5 font-semibold text-on-surface">
-                  {feature.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-on-surface-variant">
-                  {feature.description}
+                <Icon name="rocket" className="size-4" />
+                Start deploying
+              </Link>
+              <Link
+                href="/login"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "lg" }),
+                  "border-white/15 bg-white/3",
+                )}
+              >
+                Log in
+              </Link>
+            </div>
+          </div>
+
+          {/* Right — mock deployment card */}
+          <div className="flex flex-col rounded-xl border border-white/10 bg-[#17191c]/90 p-5 shadow-2xl shadow-black/50">
+            {/* Header */}
+            <div className="mb-4 flex items-start justify-between border-b border-white/10 pb-4">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant">
+                  Deployment run
+                </p>
+                <p className="mt-1 text-sm font-semibold text-white">
+                  api-service · production
                 </p>
               </div>
-            ))}
+              <span className="rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                Running
+              </span>
+            </div>
+
+            {/* Meta grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {meta.map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-md border border-white/10 bg-white/3 p-3"
+                >
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant">
+                    {label}
+                  </p>
+                  <p className="mt-1.5 text-sm font-semibold text-white">
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Log output */}
+            <div className="mt-3 rounded-md border border-white/10 bg-[#0d0f11] p-3.5 font-mono text-xs leading-[1.7] text-on-surface-variant">
+              <p className="text-primary">$ dokploy deploy api-service</p>
+              <p>validating session and project ownership</p>
+              <p>resolving environment variables</p>
+              <p>building from Dockerfile</p>
+              <p className="text-white">deployment accepted · run #42</p>
+            </div>
+
+            {/* Steps */}
+            <div className="mt-3 grid gap-1.5">
+              {steps.map(({ label, step }) => (
+                <div
+                  key={label}
+                  className="flex items-center justify-between rounded-md border border-white/10 bg-white/2.5 px-3 py-2"
+                >
+                  <span className="text-sm text-white">{label}</span>
+                  <span className="font-mono text-xs text-on-surface-variant">
+                    {step}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA strip */}
-      <section className="relative z-10 border-t border-outline-variant/20 px-6 py-16 text-center lg:px-10">
-        <h2 className="mb-3 text-2xl font-bold tracking-tight text-on-surface">
-          Ready to ship your first project?
-        </h2>
-        <p className="mb-8 text-on-surface-variant">
-          Create a free account and deploy in minutes.
-        </p>
-        <Link href="/sign-up" className={cn(buttonVariants({ size: "lg" }))}>
-          Create an account
-        </Link>
+      {/* ── Feature cards ─────────────────────────────────────── */}
+      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-14 lg:grid-cols-3 lg:px-8">
+        {highlights.map((h) => (
+          <article
+            key={h.title}
+            className="rounded-xl border border-white/10 bg-surface-container-low p-6"
+          >
+            <div className="mb-5 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Icon name={h.icon} className="size-5" />
+            </div>
+            <h2 className="text-base font-semibold text-white">{h.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
+              {h.description}
+            </p>
+          </article>
+        ))}
       </section>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-outline-variant/15 px-6 py-6 lg:px-10">
-        <p className="text-center text-xs text-on-surface-variant/60">
-          © {new Date().getFullYear()} Monolithic Void. Powered by Dokploy.
-        </p>
+      {/* ── Footer strip ──────────────────────────────────────── */}
+      <footer className="border-t border-white/10 px-6 py-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between text-xs text-on-surface-variant">
+          <span>Gori Lab</span>
+        </div>
       </footer>
     </main>
   );
 }
-
-const features: {
-  title: string;
-  description: string;
-  icon: React.ComponentProps<typeof Icon>["name"];
-}[] = [
-  {
-    icon: "link",
-    title: "GitHub integration",
-    description:
-      "Connect your GitHub account and select from your authorized repositories. No manual URL pasting required.",
-  },
-  {
-    icon: "terminal",
-    title: "Dockerfile & static deploys",
-    description:
-      "Deploy containerized apps with a Dockerfile or static sites with a publish directory — your choice.",
-  },
-  {
-    icon: "folder",
-    title: "Monorepo support",
-    description:
-      "Set a root directory per project so monorepos deploy the right service every time.",
-  },
-  {
-    icon: "shield",
-    title: "Secrets management",
-    description:
-      "Store environment variables securely. Secrets are encrypted and never returned to the browser.",
-  },
-  {
-    icon: "history",
-    title: "Deployment history",
-    description:
-      "Every deploy run is recorded — who triggered it, which branch, the status, and the public URL.",
-  },
-  {
-    icon: "sparkles",
-    title: "Multiple environments",
-    description:
-      "Create production, staging, and preview environments for each project with isolated settings.",
-  },
-];

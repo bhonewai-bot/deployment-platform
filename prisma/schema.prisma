@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../app/generated/prisma"
@@ -6,31 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-}
-
-model Deployment {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // GitHub info
-  repoUrl       String
-  repoName      String
-  branch        String
-  rootDirectory String
-
-  // Build config
-  deploymentType String
-  containerPort  Int
-
-  // Dokploy
-  applicationId String  @unique
-  publicUrl     String?
-
-  // Status: "building" | "done" | "error" | "idle"
-  status String @default("building")
-
-  @@map("deployment")
 }
 
 model User {
@@ -43,6 +17,12 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+
+  // Platform relations
+  projects         Project[]
+  deploymentRuns   DeploymentRun[]
+  auditEvents      AuditEvent[]
+  githubConnections GitHubConnection[]
 
   @@unique([email])
   @@map("user")
@@ -94,4 +74,309 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+model Deployment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repoUrl       String
+  repoName      String
+  branch        String
+  rootDirectory String
+
+  deploymentType String
+  containerPort  Int
+
+  applicationId String  @unique
+  publicUrl     String?
+
+  // "building" | "done" | "error" | "idle"
+  status String @default("building")
+
+  @@index([id])
+  @@map("deployment")
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name String
+
+  repoUrl String
+  repoName String
+  defaultBranch String @default("main")
+  rootDirectory String @default(".")
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  environments   Environment[]
+  deploymentRuns DeploymentRun[]
+  secrets        ProjectSecret[]
+  domains        Domain[]
+  auditEvents    AuditEvent[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("project")
+}
+
+/// A deploy target for a Project — e.g. production, staging, preview.
+model Environment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name String
+
+  /// Deployment mode: "dockerfile" | "static"
+  deploymentMode String @default("dockerfile")
+
+  /// Path to Dockerfile relative to rootDirectory. Used when mode is dockerfile.
+  dockerfilePath String @default("Dockerfile")
+
+  /// Container port the app listens on. Used when mode is dockerfile.
+  containerPort Int @default(3000)
+
+  /// Publish directory for static sites, relative to rootDirectory.
+  publishDirectory String @default("dist")
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  deploymentRuns DeploymentRun[]
+  secrets        ProjectSecret[]
+  domains        Domain[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("environment")
+}
+
+/// One attempt to deploy one commit to one Environment.
+/// Created before any remote side effects are triggered.
+model DeploymentRun {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Idempotency key — callers may supply one to prevent duplicate triggers.
+  idempotencyKey String? @unique
+
+  /// Git branch for this run.
+  branch String
+
+  /// Git commit SHA being deployed. Null until resolved.
+  commitSha String?
+
+  /// Deployment mode snapshot at run time: "dockerfile" | "static"
+  deploymentMode String
+
+  /// Status lifecycle: "pending" | "building" | "success" | "failed" | "cancelled"
+  status String @default("pending")
+
+  /// Safe, user-facing error summary. Never contains raw provider errors.
+  errorMessage String?
+
+  /// Public URL assigned after a successful deploy.
+  publicUrl String?
+
+  /// Dokploy application ID used for this run.
+  dokployApplicationId String?
+
+  /// Raw Dokploy response body stored for debugging. Never exposed to the browser.
+  dokployResponseRaw String?
+
+  /// How this run was triggered: "manual" | "push" | "api"
+  triggeredBy String @default("manual")
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  environmentId String
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+
+  /// The user who triggered this run.
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([environmentId])
+  @@index([actorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("deployment_run")
+}
+
+/// An encrypted environment variable scoped to a Project.
+/// Optionally further scoped to one Environment.
+/// Values are encrypted before insert and never returned in plaintext after save.
+model ProjectSecret {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Variable name, e.g. DATABASE_URL
+  key String
+
+  /// AES-256-GCM encrypted value. Encryption handled in the application layer.
+  encryptedValue String
+
+  /// Null means the secret applies to all environments in the project.
+  environmentId String?
+  environment   Environment? @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// Key must be unique per project + environment combination.
+  @@unique([projectId, environmentId, key])
+  @@index([projectId])
+  @@index([environmentId])
+  @@map("project_secret")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2 continued: Domain, AuditEvent, WebhookEvent, GitHubConnection
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A hostname mapped to one Environment.
+/// May be a generated subdomain or a custom domain verified by the user.
+model Domain {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// The full hostname, e.g. api.example.com or api-prod.gorilab.app
+  hostname String @unique
+
+  /// "generated" | "custom"
+  kind String @default("generated")
+
+  /// Verification status for custom domains: "pending" | "verified" | "failed"
+  verificationStatus String @default("pending")
+
+  /// DNS verification token used for TXT record checks.
+  verificationToken String?
+
+  /// Whether this domain is currently receiving traffic.
+  isActive Boolean @default(false)
+
+  environmentId String
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([environmentId])
+  @@index([projectId])
+  @@map("domain")
+}
+
+/// Immutable record of a user action against a project or environment.
+/// Actor and project FKs are nullable so audit history survives deletion.
+model AuditEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  /// What happened: "project.created" | "deployment.triggered" | "secret.updated" etc.
+  action String
+
+  /// Free-form JSON snapshot of relevant state at event time. Never contains secrets.
+  metadata Json?
+
+  /// Safe summary shown in audit UI.
+  summary String?
+
+  /// Null if the actor's account has since been deleted.
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  /// Null if the project has since been deleted.
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  environmentId String?
+
+  @@index([actorId])
+  @@index([projectId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_event")
+}
+
+/// Inbound webhook event from GitHub or Dokploy.
+/// Stored before processing so delivery is idempotent and retryable.
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Provider that sent the event: "github" | "dokploy"
+  provider String
+
+  /// Provider-supplied event type, e.g. "push", "deployment_status".
+  eventType String
+
+  /// Provider-supplied delivery ID used for idempotency.
+  deliveryId String @unique
+
+  /// Raw request body stored as-is for replay and debugging.
+  rawPayload Json
+
+  /// Processing status: "pending" | "processed" | "failed" | "ignored"
+  status String @default("pending")
+
+  /// Safe error message if processing failed.
+  errorMessage String?
+
+  /// ISO timestamp when processing completed.
+  processedAt DateTime?
+
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
+  @@map("webhook_event")
+}
+
+/// Records a user's GitHub connection — OAuth token or App installation.
+/// One user may have multiple connections (e.g. personal + org installation).
+/// Tokens are stored encrypted. Never return accessToken to the browser.
+model GitHubConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// "oauth" | "app_installation"
+  kind String @default("oauth")
+
+  /// GitHub user or organisation login.
+  githubLogin String
+
+  /// Numeric GitHub user/installation ID.
+  githubId String
+
+  /// GitHub App installation ID. Null for plain OAuth connections.
+  installationId String?
+
+  /// AES-256-GCM encrypted OAuth access token.
+  /// Null for App installations that use installation tokens generated at runtime.
+  encryptedAccessToken String?
+
+  /// Token expiry if the provider returns one (GitHub App tokens expire).
+  accessTokenExpiresAt DateTime?
+
+  /// OAuth scopes granted, e.g. "repo,read:user"
+  scopes String?
+
+  /// Whether this connection is currently usable.
+  isActive Boolean @default(true)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, githubId, kind])
+  @@index([userId])
+  @@map("github_connection")
 }

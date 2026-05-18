@@ -47,12 +47,12 @@ export function SignInForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/projects");
   }
 
   async function handleGitHub() {
     setSocialLoading(true);
-    await signIn.social({ provider: "github", callbackURL: "/dashboard" });
+    await signIn.social({ provider: "github", callbackURL: "/projects" });
     setSocialLoading(false);
   }
 

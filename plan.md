@@ -48,7 +48,7 @@ Goal: stop the mixed structure before adding more product code.
 - Move deployment UI from `components/deployment` to `features/deployments/components`.
 - Move deployment server code from `server/services` and `server/providers` to `features/deployments/server`.
 - Keep Prisma client in `lib/prisma.ts`.
-- Move shared errors and utilities into `shared/errors` and `shared/utils`.
+- Move shared errors and utilities into `lib/errors` and `lib/utils`.
 - Replace `types/index.ts` with feature-local `types.ts` files or Zod-inferred types.
 - Add Zod schemas for current import and deployment inputs.
 
