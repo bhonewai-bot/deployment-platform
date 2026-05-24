@@ -4,8 +4,10 @@ export const deployParamsSchema = z.object({
   repoUrl: z.string().min(1, "Repository URL is required"),
   branch: z.string().min(1, "Branch is required"),
   rootDirectory: z.string().min(1, "Root directory is required"),
-  deploymentType: z.enum(["dockerfile", "static"]),
+  buildType: z.enum(["nixpacks", "dockerfile", "static"]),
   containerPort: z.number().int().positive().optional(),
+  dockerfilePath: z.string().optional(),
+  publishDirectory: z.string().optional(),
   generatePublicUrl: z.boolean().optional(),
   envVars: z
     .array(

@@ -8,3 +8,9 @@ export const githubAppCallbackSchema = z.object({
 export const githubRepositoriesQuerySchema = z.object({
   connectionId: z.string().optional(),
 });
+
+export const githubDetectQuerySchema = z.object({
+  repoFullName: z.string().min(1, "repoFullName is required."), // e.g. "acme/api-gateway"
+  branch: z.string().min(1, "branch is required."),
+  connectionId: z.string().optional(),
+});

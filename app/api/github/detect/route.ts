@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { githubRepositoriesQuerySchema } from "@/features/github/schemas/github-app.schema";
-import { listInstallationRepositories } from "@/features/github/server/github-app.service";
+import { githubDetectQuerySchema } from "@/features/github/schemas/github-app.schema";
+import { detectInstallationRepository } from "@/features/github/server/github-app.service";
 import { auth } from "@/lib/auth";
 import { logError, toClientMessage, toStatusCode } from "@/lib/errors";
 import { prisma } from "@/lib/prisma";
@@ -14,9 +14,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
-    const parsed = githubRepositoriesQuerySchema.safeParse({
-      connectionId:
-        request.nextUrl.searchParams.get("connectionId") ?? undefined,
+    const parsed = githubDetectQuerySchema.safeParse({
+      repoFullName: request.nextUrl.searchParams.get("repoFullName") ?? undefined,
+      branch: request.nextUrl.searchParams.get("branch") ?? undefined,
+      connectionId: request.nextUrl.searchParams.get("connectionId") ?? undefined,
     });
 
     if (!parsed.success) {
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     const connection = await prisma.gitHubConnection.findFirst({
       where: {
-        id: parsed.data.connectionId,
+        ...(parsed.data.connectionId ? { id: parsed.data.connectionId } : {}),
         userId: session.user.id,
         kind: "app_installation",
         isActive: true,
@@ -44,23 +45,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const repositories = await listInstallationRepositories(
+    const result = await detectInstallationRepository(
       connection.installationId,
+      parsed.data.repoFullName,
+      parsed.data.branch,
     );
 
-    return NextResponse.json({
-      connection: {
-        id: connection.id,
-        login: connection.githubLogin,
-        repositorySelection: connection.scopes,
-      },
-      repositories,
-    });
+    return NextResponse.json(result);
   } catch (error) {
-    logError("api/github/repositories", error);
+    logError("api/github/detect", error);
 
     return NextResponse.json(
-      { error: toClientMessage(error, "Failed to fetch GitHub repositories.") },
+      { error: toClientMessage(error, "Failed to detect repository.") },
       { status: toStatusCode(error) },
     );
   }

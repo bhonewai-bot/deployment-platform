@@ -96,7 +96,7 @@ export function DeployForm() {
           repoUrl: repo,
           branch,
           rootDirectory,
-          deploymentType,
+          buildType: deploymentType,
           generatePublicUrl,
           containerPort: Number.parseInt(containerPort, 10),
           envVars,
@@ -113,7 +113,7 @@ export function DeployForm() {
         );
       }
 
-      setApplicationId(data.applicationId ?? "");
+      setApplicationId(data.dokployApplicationId ?? "");
       setPublicUrl(data.publicUrl ?? "");
       setDomainError(data.domainError ?? "");
 

@@ -16,18 +16,22 @@ export type DeploymentLogLine = {
 
 export type DeploymentStatus = "idle" | "building" | "done" | "error";
 
+export type BuildType = "nixpacks" | "dockerfile" | "static";
+
 export type DeployParams = {
   repoUrl: string;
   branch: string;
   rootDirectory: string;
-  deploymentType: "dockerfile" | "static";
+  buildType: BuildType;
   containerPort?: number;
+  dockerfilePath?: string;
+  publishDirectory?: string;
   generatePublicUrl?: boolean;
   envVars?: EnvVar[];
 };
 
 export type DeployResult = {
-  applicationId: string;
+  dokployApplicationId: string;
   message: string;
   publicUrl: string | null;
   domainError: string | null;

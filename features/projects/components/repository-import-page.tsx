@@ -1,11 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useActionState, useEffect, useMemo, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import type { DetectRepositoryResult } from "@/features/github/server/github-app.service";
+import {
+  deployProjectAction,
+  type DeployProjectState,
+} from "@/features/github/server/import-repository.action";
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 type GitHubConnectionView = {
   id: string;
@@ -30,25 +36,27 @@ type RepositoriesResponse = {
   repositories: GitHubRepository[];
 };
 
-type DeployMode = "dockerfile" | "static";
+type BuildType = "nixpacks" | "dockerfile" | "static";
 
 type ImportConfig = {
   branch: string;
   rootDirectory: string;
-  mode: DeployMode;
+  buildType: BuildType;
+  port: string;
   dockerfilePath: string;
-  containerPort: string;
   publishDirectory: string;
 };
 
 const initialConfig: ImportConfig = {
   branch: "main",
   rootDirectory: ".",
-  mode: "dockerfile",
+  buildType: "nixpacks",
+  port: "3000",
   dockerfilePath: "Dockerfile",
-  containerPort: "3000",
   publishDirectory: "dist",
 };
+
+// ─── Root component ────────────────────────────────────────────────────────────
 
 export function RepositoryImportPage({
   initialConnection,
@@ -57,11 +65,11 @@ export function RepositoryImportPage({
 }) {
   const [connection, setConnection] = useState(initialConnection);
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
-  const [selectedRepo, setSelectedRepo] = useState<GitHubRepository | null>(
-    null,
-  );
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepository | null>(null);
   const [query, setQuery] = useState("");
   const [config, setConfig] = useState<ImportConfig>(initialConfig);
+  const [detection, setDetection] = useState<DetectRepositoryResult | null>(null);
+  const [detecting, setDetecting] = useState(false);
   const [loading, setLoading] = useState(Boolean(initialConnection));
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +81,7 @@ export function RepositoryImportPage({
       setError(null);
 
       const response = await fetch("/api/github/repositories");
-      const body = (await response.json()) as
-        | RepositoriesResponse
-        | { error: string };
+      const body = (await response.json()) as RepositoriesResponse | { error: string };
 
       setLoading(false);
 
@@ -94,24 +100,45 @@ export function RepositoryImportPage({
 
   const filteredRepositories = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-
     if (!normalizedQuery) return repositories;
 
-    return repositories.filter((repo) => {
-      return (
-        repo.fullName.toLowerCase().includes(normalizedQuery) ||
-        repo.name.toLowerCase().includes(normalizedQuery) ||
-        (repo.description ?? "").toLowerCase().includes(normalizedQuery)
-      );
-    });
+    return repositories.filter((repo) =>
+      repo.fullName.toLowerCase().includes(normalizedQuery) ||
+      repo.name.toLowerCase().includes(normalizedQuery) ||
+      (repo.description ?? "").toLowerCase().includes(normalizedQuery),
+    );
   }, [query, repositories]);
 
-  function selectRepo(repo: GitHubRepository) {
+  async function selectRepo(repo: GitHubRepository) {
     setSelectedRepo(repo);
-    setConfig((current) => ({
-      ...current,
-      branch: repo.defaultBranch,
-    }));
+    setDetection(null);
+    setConfig({ ...initialConfig, branch: repo.defaultBranch });
+    setDetecting(true);
+
+    try {
+      const params = new URLSearchParams({
+        repoFullName: repo.fullName,
+        branch: repo.defaultBranch,
+      });
+
+      const response = await fetch(`/api/github/detect?${params.toString()}`);
+
+      if (response.ok) {
+        const result = (await response.json()) as DetectRepositoryResult;
+        setDetection(result);
+        setConfig((current) => ({
+          ...current,
+          buildType: result.buildType,
+          port: result.suggestions.port,
+          dockerfilePath: result.suggestions.dockerfilePath,
+          publishDirectory: result.suggestions.publishDirectory,
+        }));
+      }
+    } catch {
+      // Non-fatal — user can configure manually
+    } finally {
+      setDetecting(false);
+    }
   }
 
   if (!connection) {
@@ -123,23 +150,18 @@ export function RepositoryImportPage({
             Connect GitHub first
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Install the GitHub App before importing a repository. This works even
-            if you signed in with email or Google.
+            Install the GitHub App before importing a repository. This works
+            even if you signed in with email or Google.
           </p>
           <div className="mt-6 flex gap-3">
-            <Link
+            {/* plain <a> — forces full page navigation, avoids CORS on RSC fetch */}
+            <a
               href="/api/github/install"
               className={cn(buttonVariants({ size: "lg" }), "gap-2")}
             >
               <GitHubMark className="size-4" />
               Connect GitHub
-            </Link>
-            <Link
-              href="/projects"
-              className={buttonVariants({ variant: "outline", size: "lg" })}
-            >
-              Back to projects
-            </Link>
+            </a>
           </div>
         </div>
       </div>
@@ -162,16 +184,16 @@ export function RepositoryImportPage({
                 {connection.login}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {repositories.length} repositories available from this
-                installation.
+                {repositories.length} repositories available from this installation.
               </p>
             </div>
-            <Link
+            {/* plain <a> here too — same reason */}
+            <a
               href="/api/github/install"
               className={buttonVariants({ variant: "outline", size: "sm" })}
             >
               Manage installation
-            </Link>
+            </a>
           </div>
 
           {!selectedRepo ? (
@@ -186,8 +208,14 @@ export function RepositoryImportPage({
           ) : (
             <ConfigureProject
               config={config}
+              connection={connection}
+              detection={detection}
+              detecting={detecting}
               repo={selectedRepo}
-              onBack={() => setSelectedRepo(null)}
+              onBack={() => {
+                setSelectedRepo(null);
+                setDetection(null);
+              }}
               onConfigChange={setConfig}
             />
           )}
@@ -203,6 +231,8 @@ export function RepositoryImportPage({
   );
 }
 
+// ─── Page header ───────────────────────────────────────────────────────────────
+
 function PageHeader() {
   return (
     <div>
@@ -215,6 +245,8 @@ function PageHeader() {
     </div>
   );
 }
+
+// ─── Repository picker ─────────────────────────────────────────────────────────
 
 function RepositoryPicker({
   error,
@@ -293,10 +325,7 @@ function RepositoryPicker({
                 {repo.language && <span>{repo.language}</span>}
                 <span>{formatDate(repo.updatedAt)}</span>
               </div>
-              <Icon
-                name="chevron-right"
-                className="size-4 text-muted-foreground"
-              />
+              <Icon name="chevron-right" className="size-4 text-muted-foreground" />
             </button>
           ))
         )}
@@ -305,18 +334,49 @@ function RepositoryPicker({
   );
 }
 
+// ─── Configure + Deploy ────────────────────────────────────────────────────────
+
+const BUILD_TYPE_OPTIONS: { id: BuildType; title: string; description: string }[] = [
+  {
+    id: "nixpacks",
+    title: "Nixpacks",
+    description: "Auto-detects your framework and builds it. No config needed.",
+  },
+  {
+    id: "dockerfile",
+    title: "Dockerfile",
+    description: "Build and run a container from your own Dockerfile.",
+  },
+  {
+    id: "static",
+    title: "Static site",
+    description: "Serve a build output directory containing index.html.",
+  },
+];
+
 function ConfigureProject({
   config,
+  connection,
+  detection,
+  detecting,
   repo,
   onBack,
   onConfigChange,
 }: {
   config: ImportConfig;
+  connection: GitHubConnectionView;
+  detection: DetectRepositoryResult | null;
+  detecting: boolean;
   repo: GitHubRepository;
   onBack: () => void;
   onConfigChange: (config: ImportConfig) => void;
 }) {
-  function updateConfig(next: Partial<ImportConfig>) {
+  const [state, formAction, isPending] = useActionState<DeployProjectState, FormData>(
+    deployProjectAction,
+    { status: "idle" },
+  );
+
+  function update(next: Partial<ImportConfig>) {
     onConfigChange({ ...config, ...next });
   }
 
@@ -336,94 +396,166 @@ function ConfigureProject({
           Configure {repo.fullName}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Set only the values needed to create the project. Deployment can start
-          after project creation.
+          Set up how this project will be built and deployed on Dokploy.
         </p>
       </div>
 
-      <div className="mt-6 grid gap-5">
-        <Field label="Production branch">
-          <input
-            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
-            value={config.branch}
-            onChange={(event) => updateConfig({ branch: event.target.value })}
-          />
-        </Field>
+      {detecting && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          <Spinner />
+          Detecting build configuration...
+        </div>
+      )}
 
-        <Field label="Root directory">
-          <input
-            className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
-            value={config.rootDirectory}
-            onChange={(event) =>
-              updateConfig({ rootDirectory: event.target.value })
-            }
-          />
-        </Field>
+      {!detecting && detection && (
+        <div className={cn(
+          "mt-4 rounded-lg border px-4 py-3 text-sm",
+          detection.confidence === "auto"
+            ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300"
+            : "border-border bg-muted/40 text-muted-foreground",
+        )}>
+          {detection.confidence === "auto"
+            ? `Auto-detected: ${BUILD_TYPE_OPTIONS.find((o) => o.id === detection.buildType)?.title}. You can override below.`
+            : "Could not auto-detect build type. Please select one below."}
+        </div>
+      )}
 
-        <Field label="Deployment mode">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <ModeCard
-              active={config.mode === "dockerfile"}
-              description="Build and run a container from a Dockerfile."
-              title="Dockerfile"
-              onClick={() => updateConfig({ mode: "dockerfile" })}
-            />
-            <ModeCard
-              active={config.mode === "static"}
-              description="Serve a publish directory that contains index.html."
-              title="Static site"
-              onClick={() => updateConfig({ mode: "static" })}
-            />
-          </div>
-        </Field>
+      {state.status === "error" && (
+        <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {state.error}
+        </div>
+      )}
 
-        {config.mode === "dockerfile" ? (
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Dockerfile path">
-              <input
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
-                value={config.dockerfilePath}
-                onChange={(event) =>
-                  updateConfig({ dockerfilePath: event.target.value })
-                }
-              />
-            </Field>
-            <Field label="Container port">
-              <input
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
-                inputMode="numeric"
-                value={config.containerPort}
-                onChange={(event) =>
-                  updateConfig({ containerPort: event.target.value })
-                }
-              />
-            </Field>
-          </div>
-        ) : (
-          <Field label="Publish directory">
+      <form action={formAction}>
+        <input type="hidden" name="repoFullName" value={repo.fullName} />
+        <input type="hidden" name="repoName" value={repo.name} />
+        <input type="hidden" name="repoUrl" value={repo.htmlUrl} />
+        <input type="hidden" name="defaultBranch" value={repo.defaultBranch} />
+        {connection.id && (
+          <input type="hidden" name="connectionId" value={connection.id} />
+        )}
+
+        <div className="mt-6 grid gap-5">
+          <Field label="Production branch">
             <input
+              name="branch"
               className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
-              value={config.publishDirectory}
-              onChange={(event) =>
-                updateConfig({ publishDirectory: event.target.value })
-              }
+              value={config.branch}
+              onChange={(e) => update({ branch: e.target.value })}
             />
-            <p className="mt-2 text-xs text-muted-foreground">
-              This directory must contain an index.html file.
+          </Field>
+
+          <Field label="Root directory">
+            <input
+              name="rootDirectory"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
+              value={config.rootDirectory}
+              onChange={(e) => update({ rootDirectory: e.target.value })}
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Use <code className="font-mono">.</code> for the repo root. Change for monorepos (e.g. <code className="font-mono">apps/web</code>).
             </p>
           </Field>
-        )}
-      </div>
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Button disabled>Create project (next)</Button>
-        <Button variant="outline" onClick={onBack}>
-          Back
-        </Button>
-      </div>
+          <input type="hidden" name="buildType" value={config.buildType} />
+
+          <Field label="Build type">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {BUILD_TYPE_OPTIONS.map((opt) => (
+                <ModeCard
+                  key={opt.id}
+                  active={config.buildType === opt.id}
+                  title={opt.title}
+                  description={opt.description}
+                  onClick={() => update({ buildType: opt.id })}
+                />
+              ))}
+            </div>
+          </Field>
+
+          {config.buildType === "nixpacks" && (
+            <Field label="Port">
+              <input
+                name="port"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
+                inputMode="numeric"
+                value={config.port}
+                onChange={(e) => update({ port: e.target.value })}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                The port your app listens on.
+              </p>
+            </Field>
+          )}
+
+          {config.buildType === "dockerfile" && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Dockerfile path">
+                <input
+                  name="dockerfilePath"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
+                  value={config.dockerfilePath}
+                  onChange={(e) => update({ dockerfilePath: e.target.value })}
+                />
+              </Field>
+              <Field label="Container port">
+                <input
+                  name="port"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
+                  inputMode="numeric"
+                  value={config.port}
+                  onChange={(e) => update({ port: e.target.value })}
+                />
+              </Field>
+            </div>
+          )}
+
+          {config.buildType === "static" && (
+            <Field label="Publish directory">
+              <input
+                name="publishDirectory"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-foreground/40"
+                value={config.publishDirectory}
+                onChange={(e) => update({ publishDirectory: e.target.value })}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                The directory that contains your built <code className="font-mono">index.html</code>.
+              </p>
+            </Field>
+          )}
+
+          {config.buildType !== "dockerfile" && (
+            <input type="hidden" name="dockerfilePath" value={config.dockerfilePath} />
+          )}
+          {config.buildType === "static" && (
+            <input type="hidden" name="port" value={config.port} />
+          )}
+          {config.buildType !== "static" && (
+            <input type="hidden" name="publishDirectory" value={config.publishDirectory} />
+          )}
+        </div>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button type="submit" disabled={isPending || detecting}>
+            {isPending ? (
+              <span className="flex items-center gap-2">
+                <Spinner />
+                Creating project...
+              </span>
+            ) : (
+              "Deploy"
+            )}
+          </Button>
+          <Button type="button" variant="outline" onClick={onBack}>
+            Back
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }
+
+// ─── Import summary sidebar ────────────────────────────────────────────────────
 
 function ImportSummary({
   config,
@@ -434,48 +566,35 @@ function ImportSummary({
   connection: GitHubConnectionView;
   repo: GitHubRepository | null;
 }) {
+  const buildTypeLabel =
+    config.buildType === "nixpacks" ? "Nixpacks"
+    : config.buildType === "dockerfile" ? "Dockerfile"
+    : "Static site";
+
+  const targetLabel =
+    config.buildType === "dockerfile" ? `${config.dockerfilePath}:${config.port}`
+    : config.buildType === "static" ? `${config.publishDirectory}/index.html`
+    : `port ${config.port}`;
+
   return (
     <aside className="rounded-2xl border border-border bg-card p-6">
       <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
         Import summary
       </p>
-
       <div className="mt-5 space-y-4 text-sm">
         <SummaryRow label="GitHub" value={connection.login} />
         <SummaryRow label="Repository" value={repo?.fullName ?? "Not selected"} />
         <SummaryRow label="Branch" value={repo ? config.branch : "-"} />
-        <SummaryRow
-          label="Mode"
-          value={
-            repo
-              ? config.mode === "dockerfile"
-                ? "Dockerfile"
-                : "Static site"
-              : "-"
-          }
-        />
-        <SummaryRow
-          label="Target"
-          value={
-            repo
-              ? config.mode === "dockerfile"
-                ? `${config.dockerfilePath}:${config.containerPort}`
-                : `${config.publishDirectory}/index.html`
-              : "-"
-          }
-        />
+        <SummaryRow label="Build type" value={repo ? buildTypeLabel : "-"} />
+        <SummaryRow label="Target" value={repo ? targetLabel : "-"} />
       </div>
     </aside>
   );
 }
 
-function Field({
-  children,
-  label,
-}: {
-  children: React.ReactNode;
-  label: string;
-}) {
+// ─── Shared small components ───────────────────────────────────────────────────
+
+function Field({ children, label }: { children: React.ReactNode; label: string }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -486,12 +605,7 @@ function Field({
   );
 }
 
-function ModeCard({
-  active,
-  description,
-  title,
-  onClick,
-}: {
+function ModeCard({ active, description, title, onClick }: {
   active: boolean;
   description: string;
   title: string;
@@ -509,9 +623,7 @@ function ModeCard({
       onClick={onClick}
     >
       <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        {description}
-      </p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
     </button>
   );
 }
@@ -544,20 +656,8 @@ function GitHubMark({ className }: { className?: string }) {
 function Spinner() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="size-4 animate-spin">
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="3"
-        className="opacity-25"
-      />
-      <path
-        d="M21 12a9 9 0 0 0-9-9"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="3"
-      />
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
     </svg>
   );
 }

@@ -50,6 +50,40 @@ function StatusDot({ status }: { status: DeploymentStatus }) {
   );
 }
 
+// ─── No-projects empty state (GitHub already connected) ───────────────────────
+
+function NoProjectsEmptyState() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Projects
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          GitHub is connected. Import your first repository to get started.
+        </p>
+      </div>
+      <div className="rounded-2xl border border-border bg-card p-8 shadow-xs">
+        <h2 className="text-xl font-bold tracking-tight text-foreground">
+          No projects yet
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Import a repository to create your first project.
+        </p>
+        <div className="mt-6">
+          <Link
+            href="/projects/new"
+            className={cn(buttonVariants({ size: "lg" }), "gap-2")}
+          >
+            <Icon name="plus" className="size-4" />
+            Import Repository
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Project card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ project }: { project: Project }) {
@@ -150,19 +184,35 @@ export default async function ProjectsPage() {
     return null;
   }
 
-  const projects = await prisma.project.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      deploymentRuns: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
+  const [projects, connection] = await Promise.all([
+    prisma.project.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        deploymentRuns: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
-    },
-  });
+    }),
+    prisma.gitHubConnection.findFirst({
+      where: {
+        userId: session.user.id,
+        kind: "app_installation",
+        isActive: true,
+        installationId: { not: null },
+      },
+    }),
+  ]);
 
-  if (projects.length === 0) {
+  // No GitHub connection at all → prompt to connect
+  if (!connection) {
     return <ConnectGitHubEmptyState />;
+  }
+
+  // GitHub connected but no projects yet → prompt to import first repo
+  if (projects.length === 0) {
+    return <NoProjectsEmptyState />;
   }
 
   return (
