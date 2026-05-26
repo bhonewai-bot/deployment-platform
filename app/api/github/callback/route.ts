@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { githubAppCallbackSchema } from "@/features/github/schemas/github-app.schema";
 import { getGitHubInstallation } from "@/features/github/server/github-app.service";
+import { apiHandler } from "@/lib/api-handler";
 import { auth } from "@/lib/auth";
-import { logError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
+export const GET = apiHandler(async (request: NextRequest) => {
   const session = await auth.api.getSession({ headers: request.headers });
-  const redirectUrl = request.nextUrl.clone();
 
   if (!session) {
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("next", "/projects");
-    return NextResponse.redirect(redirectUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", "/projects");
+    return NextResponse.redirect(url);
   }
 
   const parsed = githubAppCallbackSchema.safeParse({
@@ -22,10 +23,15 @@ export async function GET(request: NextRequest) {
   });
 
   if (!parsed.success) {
-    redirectUrl.pathname = "/projects";
-    redirectUrl.search = "";
-    redirectUrl.searchParams.set("github", "missing-installation");
-    return NextResponse.redirect(redirectUrl);
+    logger.warn(
+      { issues: parsed.error.issues },
+      "GitHub callback received invalid params",
+    );
+    const url = request.nextUrl.clone();
+    url.pathname = "/projects";
+    url.search = "";
+    url.searchParams.set("github", "missing-installation");
+    return NextResponse.redirect(url);
   }
 
   try {
@@ -58,16 +64,34 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    redirectUrl.pathname = "/projects/new";
-    redirectUrl.search = "";
-    redirectUrl.searchParams.set("connected", "github");
-    return NextResponse.redirect(redirectUrl);
-  } catch (error) {
-    logError("api/github/callback", error);
+    logger.info(
+      {
+        installationId: installation.installationId,
+        login: installation.githubLogin,
+      },
+      "GitHub App installation saved",
+    );
 
-    redirectUrl.pathname = "/projects";
-    redirectUrl.search = "";
-    redirectUrl.searchParams.set("github", "connection-failed");
-    return NextResponse.redirect(redirectUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = "/projects/new";
+    url.search = "";
+    url.searchParams.set("connected", "github");
+    return NextResponse.redirect(url);
+  } catch (error) {
+    logger.error(
+      {
+        err:
+          error instanceof Error
+            ? { message: error.message, stack: error.stack }
+            : error,
+      },
+      "GitHub callback failed",
+    );
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/projects";
+    url.search = "";
+    url.searchParams.set("github", "connection-failed");
+    return NextResponse.redirect(url);
   }
-}
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { signOut } from "@/lib/auth-client";
@@ -64,9 +65,12 @@ export function UserMenu({ name, email, image, initials }: UserMenuProps) {
         }}
       >
         {image ? (
-          <img
+          <Image
             src={image}
             alt={name ?? email}
+            width={24}
+            height={24}
+            unoptimized
             className="size-6 rounded-full object-cover"
           />
         ) : (

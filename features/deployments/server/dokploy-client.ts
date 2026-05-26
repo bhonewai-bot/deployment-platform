@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AppError } from "@/lib/errors";
+import { dokployApiError, serviceUnavailable } from "@/lib/errors";
 
 function getConfig() {
   const baseUrl = process.env.DOKPLOY_URL;
@@ -8,9 +8,8 @@ function getConfig() {
 
   // REQUIRE BOTH ENV VARS TO BE SET
   if (!baseUrl || !apiKey) {
-    throw new AppError(
+    throw serviceUnavailable(
       "Dokploy is not configured. Set DOKPLOY_URL and DOKPLOY_KEY on the server.",
-      500,
     );
   }
 
@@ -85,7 +84,7 @@ async function dokployFetch(
 
   // THROW ON ERROR RESPONSE
   if (!response.ok) {
-    throw new AppError(buildErrorMessage(data), 502);
+    throw dokployApiError(buildErrorMessage(data), data);
   }
 
   return data;

@@ -12,7 +12,13 @@ import type {
 import { dokploy, dokployGet } from "./dokploy-client";
 import { parseGithubRepo } from "@/features/github/server/github.service";
 import { prisma } from "@/lib/prisma";
-import { AppError, logError, toClientMessage } from "@/lib/errors";
+import {
+  badRequest,
+  dokployApiError,
+  serviceUnavailable,
+  toClientMessage,
+} from "@/lib/errors";
+import { logger } from "@/lib/logger";
 
 // ─── Path / name helpers ───────────────────────────────────────────────────────
 
@@ -124,7 +130,7 @@ async function createDomain(params: {
     );
 
     const host = generatedHost ?? existingHost;
-    if (!host) throw new AppError("Dokploy did not return a generated domain.", 502);
+    if (!host) throw dokployApiError("Dokploy did not return a generated domain.");
 
     await dokploy("domain.create", {
       host,
@@ -144,7 +150,7 @@ async function createDomain(params: {
 
     return { publicUrl: `http://${host}`, domainError: null };
   } catch (error) {
-    logError("deployment/createDomain", error);
+    logger.error({ err: error }, "deployment/createDomain failed");
     return { publicUrl: null, domainError: toClientMessage(error, "Failed to generate public URL.") };
   }
 }
@@ -205,7 +211,7 @@ async function getOrCreateApplicationId(params: {
   })) as { applicationId?: string };
 
   if (!created.applicationId) {
-    throw new AppError("Failed to create application in Dokploy.", 502);
+    throw dokployApiError("Failed to create application in Dokploy.");
   }
 
   return created.applicationId;
@@ -273,7 +279,7 @@ async function configureBuildType(params: {
 export async function callDokploy(params: DeployParams): Promise<DeployResult> {
   const environmentId = process.env.DOKPLOY_ENVIRONMENT_ID;
   if (!environmentId) {
-    throw new AppError("DOKPLOY_ENVIRONMENT_ID is not set.", 500);
+    throw serviceUnavailable("DOKPLOY_ENVIRONMENT_ID is not set.");
   }
 
   const { repo, url } = parseGithubRepo(params.repoUrl);
@@ -470,7 +476,7 @@ function buildLogLines(rawLines: RawLogLine[]): DeploymentLogLine[] {
 }
 
 export async function fetchDeploymentStatus(applicationId: string): Promise<DeploymentStatusResult> {
-  if (!applicationId) throw new AppError("applicationId is required.", 400);
+  if (!applicationId) throw badRequest("applicationId is required.");
 
   const application = await dokployGet("application.one", { applicationId });
 

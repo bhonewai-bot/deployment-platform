@@ -65,10 +65,14 @@ export function RepositoryImportPage({
 }) {
   const [connection, setConnection] = useState(initialConnection);
   const [repositories, setRepositories] = useState<GitHubRepository[]>([]);
-  const [selectedRepo, setSelectedRepo] = useState<GitHubRepository | null>(null);
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepository | null>(
+    null,
+  );
   const [query, setQuery] = useState("");
   const [config, setConfig] = useState<ImportConfig>(initialConfig);
-  const [detection, setDetection] = useState<DetectRepositoryResult | null>(null);
+  const [detection, setDetection] = useState<DetectRepositoryResult | null>(
+    null,
+  );
   const [detecting, setDetecting] = useState(false);
   const [loading, setLoading] = useState(Boolean(initialConnection));
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +85,9 @@ export function RepositoryImportPage({
       setError(null);
 
       const response = await fetch("/api/github/repositories");
-      const body = (await response.json()) as RepositoriesResponse | { error: string };
+      const body = (await response.json()) as
+        | RepositoriesResponse
+        | { error: string };
 
       setLoading(false);
 
@@ -102,10 +108,11 @@ export function RepositoryImportPage({
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return repositories;
 
-    return repositories.filter((repo) =>
-      repo.fullName.toLowerCase().includes(normalizedQuery) ||
-      repo.name.toLowerCase().includes(normalizedQuery) ||
-      (repo.description ?? "").toLowerCase().includes(normalizedQuery),
+    return repositories.filter(
+      (repo) =>
+        repo.fullName.toLowerCase().includes(normalizedQuery) ||
+        repo.name.toLowerCase().includes(normalizedQuery) ||
+        (repo.description ?? "").toLowerCase().includes(normalizedQuery),
     );
   }, [query, repositories]);
 
@@ -184,7 +191,8 @@ export function RepositoryImportPage({
                 {connection.login}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                {repositories.length} repositories available from this installation.
+                {repositories.length} repositories available from this
+                installation.
               </p>
             </div>
             {/* plain <a> here too — same reason */}
@@ -325,7 +333,10 @@ function RepositoryPicker({
                 {repo.language && <span>{repo.language}</span>}
                 <span>{formatDate(repo.updatedAt)}</span>
               </div>
-              <Icon name="chevron-right" className="size-4 text-muted-foreground" />
+              <Icon
+                name="chevron-right"
+                className="size-4 text-muted-foreground"
+              />
             </button>
           ))
         )}
@@ -336,7 +347,11 @@ function RepositoryPicker({
 
 // ─── Configure + Deploy ────────────────────────────────────────────────────────
 
-const BUILD_TYPE_OPTIONS: { id: BuildType; title: string; description: string }[] = [
+const BUILD_TYPE_OPTIONS: {
+  id: BuildType;
+  title: string;
+  description: string;
+}[] = [
   {
     id: "nixpacks",
     title: "Nixpacks",
@@ -371,10 +386,10 @@ function ConfigureProject({
   onBack: () => void;
   onConfigChange: (config: ImportConfig) => void;
 }) {
-  const [state, formAction, isPending] = useActionState<DeployProjectState, FormData>(
-    deployProjectAction,
-    { status: "idle" },
-  );
+  const [state, formAction, isPending] = useActionState<
+    DeployProjectState,
+    FormData
+  >(deployProjectAction, { status: "idle" });
 
   function update(next: Partial<ImportConfig>) {
     onConfigChange({ ...config, ...next });
@@ -408,12 +423,14 @@ function ConfigureProject({
       )}
 
       {!detecting && detection && (
-        <div className={cn(
-          "mt-4 rounded-lg border px-4 py-3 text-sm",
-          detection.confidence === "auto"
-            ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300"
-            : "border-border bg-muted/40 text-muted-foreground",
-        )}>
+        <div
+          className={cn(
+            "mt-4 rounded-lg border px-4 py-3 text-sm",
+            detection.confidence === "auto"
+              ? "border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-300"
+              : "border-border bg-muted/40 text-muted-foreground",
+          )}
+        >
           {detection.confidence === "auto"
             ? `Auto-detected: ${BUILD_TYPE_OPTIONS.find((o) => o.id === detection.buildType)?.title}. You can override below.`
             : "Could not auto-detect build type. Please select one below."}
@@ -453,7 +470,8 @@ function ConfigureProject({
               onChange={(e) => update({ rootDirectory: e.target.value })}
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Use <code className="font-mono">.</code> for the repo root. Change for monorepos (e.g. <code className="font-mono">apps/web</code>).
+              Use <code className="font-mono">.</code> for the repo root. Change
+              for monorepos (e.g. <code className="font-mono">apps/web</code>).
             </p>
           </Field>
 
@@ -519,19 +537,28 @@ function ConfigureProject({
                 onChange={(e) => update({ publishDirectory: e.target.value })}
               />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                The directory that contains your built <code className="font-mono">index.html</code>.
+                The directory that contains your built{" "}
+                <code className="font-mono">index.html</code>.
               </p>
             </Field>
           )}
 
           {config.buildType !== "dockerfile" && (
-            <input type="hidden" name="dockerfilePath" value={config.dockerfilePath} />
+            <input
+              type="hidden"
+              name="dockerfilePath"
+              value={config.dockerfilePath}
+            />
           )}
           {config.buildType === "static" && (
             <input type="hidden" name="port" value={config.port} />
           )}
           {config.buildType !== "static" && (
-            <input type="hidden" name="publishDirectory" value={config.publishDirectory} />
+            <input
+              type="hidden"
+              name="publishDirectory"
+              value={config.publishDirectory}
+            />
           )}
         </div>
 
@@ -567,14 +594,18 @@ function ImportSummary({
   repo: GitHubRepository | null;
 }) {
   const buildTypeLabel =
-    config.buildType === "nixpacks" ? "Nixpacks"
-    : config.buildType === "dockerfile" ? "Dockerfile"
-    : "Static site";
+    config.buildType === "nixpacks"
+      ? "Nixpacks"
+      : config.buildType === "dockerfile"
+        ? "Dockerfile"
+        : "Static site";
 
   const targetLabel =
-    config.buildType === "dockerfile" ? `${config.dockerfilePath}:${config.port}`
-    : config.buildType === "static" ? `${config.publishDirectory}/index.html`
-    : `port ${config.port}`;
+    config.buildType === "dockerfile"
+      ? `${config.dockerfilePath}:${config.port}`
+      : config.buildType === "static"
+        ? `${config.publishDirectory}/index.html`
+        : `port ${config.port}`;
 
   return (
     <aside className="rounded-2xl border border-border bg-card p-6">
@@ -583,7 +614,10 @@ function ImportSummary({
       </p>
       <div className="mt-5 space-y-4 text-sm">
         <SummaryRow label="GitHub" value={connection.login} />
-        <SummaryRow label="Repository" value={repo?.fullName ?? "Not selected"} />
+        <SummaryRow
+          label="Repository"
+          value={repo?.fullName ?? "Not selected"}
+        />
         <SummaryRow label="Branch" value={repo ? config.branch : "-"} />
         <SummaryRow label="Build type" value={repo ? buildTypeLabel : "-"} />
         <SummaryRow label="Target" value={repo ? targetLabel : "-"} />
@@ -594,7 +628,13 @@ function ImportSummary({
 
 // ─── Shared small components ───────────────────────────────────────────────────
 
-function Field({ children, label }: { children: React.ReactNode; label: string }) {
+function Field({
+  children,
+  label,
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
   return (
     <label className="block">
       <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -605,7 +645,12 @@ function Field({ children, label }: { children: React.ReactNode; label: string }
   );
 }
 
-function ModeCard({ active, description, title, onClick }: {
+function ModeCard({
+  active,
+  description,
+  title,
+  onClick,
+}: {
   active: boolean;
   description: string;
   title: string;
@@ -623,7 +668,9 @@ function ModeCard({ active, description, title, onClick }: {
       onClick={onClick}
     >
       <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        {description}
+      </p>
     </button>
   );
 }
@@ -632,7 +679,9 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-border pb-3 last:border-b-0">
       <span className="text-muted-foreground">{label}</span>
-      <span className="truncate font-mono text-xs text-foreground">{value}</span>
+      <span className="truncate font-mono text-xs text-foreground">
+        {value}
+      </span>
     </div>
   );
 }
@@ -647,7 +696,11 @@ function formatDate(value: string) {
 
 function GitHubMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden className={cn("fill-current", className)}>
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className={cn("fill-current", className)}
+    >
       <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
     </svg>
   );
@@ -656,8 +709,20 @@ function GitHubMark({ className }: { className?: string }) {
 function Spinner() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="size-4 animate-spin">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeLinecap="round" strokeWidth="3" />
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="3"
+        className="opacity-25"
+      />
+      <path
+        d="M21 12a9 9 0 0 0-9-9"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="3"
+      />
     </svg>
   );
 }

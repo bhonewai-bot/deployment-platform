@@ -2,74 +2,58 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { Prisma } from "@/app/generated/prisma/client";
-import { logError } from "@/lib/errors";
+import { apiHandler } from "@/lib/api-handler";
+import { HttpError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
-function verifyGitHubSignature(body: string, signature: string | null) {
+function verifyGitHubSignature(body: string, signature: string | null): boolean {
   const secret = process.env.GITHUB_WEBHOOK_SECRET;
 
-  if (!secret || !signature?.startsWith("sha256=")) {
-    return false;
-  }
+  if (!secret || !signature?.startsWith("sha256=")) return false;
 
-  const expected = `sha256=${createHmac("sha256", secret)
-    .update(body)
-    .digest("hex")}`;
+  const expected = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
 
-  const signatureBuffer = Buffer.from(signature);
-  const expectedBuffer = Buffer.from(expected);
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
 
-  if (signatureBuffer.length !== expectedBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(signatureBuffer, expectedBuffer);
+  return sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf);
 }
 
-export async function POST(request: NextRequest) {
+export const POST = apiHandler(async (request: NextRequest) => {
   const rawBody = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
 
   if (!verifyGitHubSignature(rawBody, signature)) {
-    return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
+    throw new HttpError(401, "webhook_invalid_signature", "Invalid webhook signature.");
   }
 
   const deliveryId = request.headers.get("x-github-delivery");
   const eventType = request.headers.get("x-github-event");
 
   if (!deliveryId || !eventType) {
-    return NextResponse.json(
-      { error: "Missing GitHub webhook headers." },
-      { status: 400 },
-    );
+    throw new HttpError(400, "webhook_missing_headers", "Missing GitHub webhook headers.");
   }
 
-  try {
-    const payload = JSON.parse(rawBody) as Prisma.InputJsonValue;
+  logger.info({ deliveryId, eventType }, "GitHub webhook received");
 
-    await prisma.webhookEvent.upsert({
-      where: { deliveryId },
-      create: {
-        provider: "github",
-        eventType,
-        deliveryId,
-        rawPayload: payload,
-        status: "pending",
-      },
-      update: {
-        rawPayload: payload,
-        status: "pending",
-        errorMessage: null,
-      },
-    });
+  const payload = JSON.parse(rawBody) as Prisma.InputJsonValue;
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    logError("api/github/webhook", error);
+  await prisma.webhookEvent.upsert({
+    where: { deliveryId },
+    create: {
+      provider: "github",
+      eventType,
+      deliveryId,
+      rawPayload: payload,
+      status: "pending",
+    },
+    update: {
+      rawPayload: payload,
+      status: "pending",
+      errorMessage: null,
+    },
+  });
 
-    return NextResponse.json(
-      { error: "Failed to process webhook." },
-      { status: 500 },
-    );
-  }
-}
+  return NextResponse.json({ ok: true });
+});

@@ -1,37 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { logError, toClientMessage, toStatusCode } from "@/lib/errors";
 import { fetchDeploymentStatus } from "@/features/deployments/server/deployment";
+import { apiHandler } from "@/lib/api-handler";
+import { badRequest } from "@/lib/errors";
 
 const statusQuerySchema = z.object({
   applicationId: z.string().min(1, "applicationId is required."),
 });
 
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
+export const GET = apiHandler(async (request: NextRequest) => {
+  const parsed = statusQuerySchema.safeParse({
+    applicationId: new URL(request.url).searchParams.get("applicationId"),
+  });
 
-    const parsed = statusQuerySchema.safeParse({
-      applicationId: searchParams.get("applicationId"),
-    });
-
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "Invalid query params." },
-        { status: 400 },
-      );
-    }
-
-    const result = await fetchDeploymentStatus(parsed.data.applicationId);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    logError("api/deployment/status", error);
-
-    return NextResponse.json(
-      { error: toClientMessage(error, "Failed to load deployment status.") },
-      { status: toStatusCode(error) },
+  if (!parsed.success) {
+    throw badRequest(
+      parsed.error.issues[0]?.message ?? "Invalid query params.",
     );
   }
-}
+
+  const result = await fetchDeploymentStatus(parsed.data.applicationId);
+
+  return NextResponse.json(result);
+});

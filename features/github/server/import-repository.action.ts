@@ -6,13 +6,20 @@ import { redirect } from "next/navigation";
 import { deployProjectSchema } from "@/features/github/schemas/import-repo.schema";
 import { callDokploy } from "@/features/deployments/server/deployment";
 import { auth } from "@/lib/auth";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { logError } from "@/lib/errors";
 
 // ─── Legacy action (kept for compatibility) ───────────────────────────────────
 
-export async function importGithubRepoAction(_: unknown, _formData: FormData) {
-  return { success: false, error: "Use deployProjectAction instead.", data: null };
+export async function importGithubRepoAction(
+  _prev: unknown,
+  _formData: FormData,
+) {
+  return {
+    success: false,
+    error: "Use deployProjectAction instead.",
+    data: null,
+  };
 }
 
 // ─── State type ───────────────────────────────────────────────────────────────
@@ -30,25 +37,29 @@ export async function deployProjectAction(
 ): Promise<DeployProjectState> {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) return { status: "error", error: "You must be signed in to deploy." };
+  if (!session)
+    return { status: "error", error: "You must be signed in to deploy." };
 
   // ── Validate ──────────────────────────────────────────────────────────────
   const parsed = deployProjectSchema.safeParse({
-    repoFullName:     formData.get("repoFullName"),
-    repoName:         formData.get("repoName"),
-    repoUrl:          formData.get("repoUrl"),
-    defaultBranch:    formData.get("defaultBranch"),
-    branch:           formData.get("branch"),
-    rootDirectory:    formData.get("rootDirectory"),
-    buildType:        formData.get("buildType"),
-    port:             formData.get("port"),
-    dockerfilePath:   formData.get("dockerfilePath"),
+    repoFullName: formData.get("repoFullName"),
+    repoName: formData.get("repoName"),
+    repoUrl: formData.get("repoUrl"),
+    defaultBranch: formData.get("defaultBranch"),
+    branch: formData.get("branch"),
+    rootDirectory: formData.get("rootDirectory"),
+    buildType: formData.get("buildType"),
+    port: formData.get("port"),
+    dockerfilePath: formData.get("dockerfilePath"),
     publishDirectory: formData.get("publishDirectory"),
-    connectionId:     formData.get("connectionId") ?? undefined,
+    connectionId: formData.get("connectionId") ?? undefined,
   });
 
   if (!parsed.success) {
-    return { status: "error", error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    return {
+      status: "error",
+      error: parsed.error.issues[0]?.message ?? "Invalid input.",
+    };
   }
 
   const input = parsed.data;
@@ -56,7 +67,6 @@ export async function deployProjectAction(
   // ── Step 1: Create Project + Environment + DeploymentRun in DB ───────────
   let projectId: string;
   let deploymentRunId: string;
-  let environmentId: string;
 
   try {
     const result = await prisma.$transaction(async (tx) => {
@@ -98,7 +108,11 @@ export async function deployProjectAction(
         data: {
           action: "project.created",
           summary: `Project "${input.repoName}" created from ${input.repoFullName}`,
-          metadata: { repoFullName: input.repoFullName, branch: input.branch, buildType: input.buildType },
+          metadata: {
+            repoFullName: input.repoFullName,
+            branch: input.branch,
+            buildType: input.buildType,
+          },
           actorId: session.user.id,
           projectId: project.id,
         },
@@ -109,10 +123,12 @@ export async function deployProjectAction(
 
     projectId = result.project.id;
     deploymentRunId = result.deploymentRun.id;
-    environmentId = result.environment.id;
   } catch (error) {
-    logError("deployProjectAction/db", error);
-    return { status: "error", error: "Failed to create project. Please try again." };
+    logger.error({ err: error }, "deployProjectAction/db failed");
+    return {
+      status: "error",
+      error: "Failed to create project. Please try again.",
+    };
   }
 
   // ── Step 2: Trigger Dokploy (best-effort — project already exists in DB) ─
@@ -139,14 +155,16 @@ export async function deployProjectAction(
     });
   } catch (error) {
     // Non-fatal: project is created, user can retry from the project page
-    logError("deployProjectAction/dokploy", error);
-    await prisma.deploymentRun.update({
-      where: { id: deploymentRunId },
-      data: {
-        status: "pending",
-        errorMessage: "Dokploy trigger failed. Click Deploy to retry.",
-      },
-    }).catch(() => null);
+    logger.error({ err: error }, "deployProjectAction/dokploy failed");
+    await prisma.deploymentRun
+      .update({
+        where: { id: deploymentRunId },
+        data: {
+          status: "pending",
+          errorMessage: "Dokploy trigger failed. Click Deploy to retry.",
+        },
+      })
+      .catch(() => null);
   }
 
   // ── Redirect to project page ──────────────────────────────────────────────
@@ -158,7 +176,11 @@ export async function deployProjectAction(
 export type RedeployState =
   | { status: "idle" }
   | { status: "error"; error: string }
-  | { status: "building"; dokployApplicationId: string; publicUrl: string | null };
+  | {
+      status: "building";
+      dokployApplicationId: string;
+      publicUrl: string | null;
+    };
 
 export async function redeployAction(
   _prev: RedeployState,
@@ -179,7 +201,8 @@ export async function redeployAction(
   if (!project) return { status: "error", error: "Project not found." };
 
   const environment = project.environments[0];
-  if (!environment) return { status: "error", error: "No production environment found." };
+  if (!environment)
+    return { status: "error", error: "No production environment found." };
 
   // Create a new DeploymentRun
   const deploymentRun = await prisma.deploymentRun.create({
@@ -200,7 +223,10 @@ export async function redeployAction(
       repoUrl: project.repoUrl,
       branch: project.defaultBranch,
       rootDirectory: project.rootDirectory,
-      buildType: environment.deploymentMode as "nixpacks" | "dockerfile" | "static",
+      buildType: environment.deploymentMode as
+        | "nixpacks"
+        | "dockerfile"
+        | "static",
       containerPort: environment.containerPort,
       dockerfilePath: environment.dockerfilePath,
       publishDirectory: environment.publishDirectory,
@@ -222,11 +248,16 @@ export async function redeployAction(
       publicUrl: dokployResult.publicUrl,
     };
   } catch (error) {
-    logError("redeployAction/dokploy", error);
-    await prisma.deploymentRun.update({
-      where: { id: deploymentRun.id },
-      data: { status: "failed", errorMessage: "Dokploy trigger failed." },
-    }).catch(() => null);
-    return { status: "error", error: "Failed to trigger deployment. Please try again." };
+    logger.error({ err: error }, "redeployAction/dokploy failed");
+    await prisma.deploymentRun
+      .update({
+        where: { id: deploymentRun.id },
+        data: { status: "failed", errorMessage: "Dokploy trigger failed." },
+      })
+      .catch(() => null);
+    return {
+      status: "error",
+      error: "Failed to trigger deployment. Please try again.",
+    };
   }
 }

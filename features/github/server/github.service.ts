@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AppError } from "@/lib/errors";
+import { githubApiError, notFound } from "@/lib/errors";
 import {
   GithubBranchResponse,
   GithubContentItem,
@@ -23,14 +23,16 @@ async function githubFetch<T>(path: string): Promise<T> {
   // HANDLE ERROR RESPONSES
   if (!response.ok) {
     if (response.status === 404) {
-      throw new AppError("Repository not found.");
+      throw notFound("Repository not found.");
     }
 
     if (response.status === 403) {
-      throw new AppError("GitHub API rate limit exceeded. Try again later.");
+      throw githubApiError("GitHub API rate limit exceeded. Try again later.");
     }
 
-    throw new AppError(`GitHub request failed with status ${response.status}.`);
+    throw githubApiError(
+      `GitHub request failed with status ${response.status}.`,
+    );
   }
 
   return response.json() as Promise<T>;

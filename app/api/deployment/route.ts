@@ -1,31 +1,31 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { deployParamsSchema } from "@/features/deployments/schemas/deploy-params.schema";
 import { deployApplication } from "@/features/deployments/server/deployment";
-import { logError, toClientMessage, toStatusCode } from "@/lib/errors";
+import { apiHandler } from "@/lib/api-handler";
+import { badRequest } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 
-export async function POST(request: Request) {
-  try {
-    const body: unknown = await request.json();
+export const POST = apiHandler(async (request: NextRequest) => {
+  const body: unknown = await request.json();
 
-    const parsed = deployParamsSchema.safeParse(body);
+  const parsed = deployParamsSchema.safeParse(body);
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: parsed.error.issues[0]?.message ?? "Invalid request body." },
-        { status: 400 },
-      );
-    }
-
-    const result = await deployApplication(parsed.data);
-
-    return NextResponse.json(result);
-  } catch (error) {
-    logError("api/deployment", error);
-
-    return NextResponse.json(
-      { error: toClientMessage(error, "Deployment failed. Please try again.") },
-      { status: toStatusCode(error) },
-    );
+  if (!parsed.success) {
+    throw badRequest(parsed.error.issues[0]?.message ?? "Invalid request body.");
   }
-}
+
+  logger.info(
+    { repoUrl: parsed.data.repoUrl, branch: parsed.data.branch, buildType: parsed.data.buildType },
+    "Starting deployment",
+  );
+
+  const result = await deployApplication(parsed.data);
+
+  logger.info(
+    { dokployApplicationId: result.dokployApplicationId, publicUrl: result.publicUrl },
+    "Deployment triggered",
+  );
+
+  return NextResponse.json(result);
+});

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createSign } from "crypto";
 
-import { AppError } from "@/lib/errors";
+import { githubApiError, serviceUnavailable } from "@/lib/errors";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_API_VERSION = process.env.GITHUB_API_VERSION ?? "2022-11-28";
@@ -76,7 +76,7 @@ export type DetectRepositoryResult = {
 
 function requireEnv(name: string) {
   const value = process.env[name];
-  if (!value) throw new AppError(`Missing ${name} environment variable.`);
+  if (!value) throw serviceUnavailable(`Missing ${name} environment variable.`);
   return value;
 }
 
@@ -94,7 +94,7 @@ function getPrivateKey() {
   const key = requireEnv("GITHUB_APP_PRIVATE_KEY").replace(/\\n/g, "\n");
 
   if (!key.includes("-----END")) {
-    throw new AppError(
+    throw serviceUnavailable(
       "GITHUB_APP_PRIVATE_KEY is not a complete private key. Use escaped newline characters or GITHUB_APP_PRIVATE_KEY_BASE64.",
     );
   }
@@ -149,8 +149,9 @@ async function githubFetch<T>(
 
   if (!response.ok) {
     const body = await response.text();
-    throw new AppError(
+    throw githubApiError(
       `GitHub request failed with status ${response.status}: ${body}`,
+      { status: response.status, body },
     );
   }
 
@@ -166,7 +167,7 @@ export async function getGitHubInstallation(installationId: string) {
   );
 
   if (!installation.account) {
-    throw new AppError("GitHub installation account was not returned.");
+    throw githubApiError("GitHub installation account was not returned.");
   }
 
   return {
@@ -194,17 +195,19 @@ export async function listInstallationRepositories(installationId: string) {
   );
 
   return data.repositories
-    .map((repo): GitHubInstallationRepository => ({
-      id: repo.id,
-      name: repo.name,
-      fullName: repo.full_name,
-      description: repo.description,
-      private: repo.private,
-      defaultBranch: repo.default_branch,
-      htmlUrl: repo.html_url,
-      language: repo.language,
-      updatedAt: repo.updated_at,
-    }))
+    .map(
+      (repo): GitHubInstallationRepository => ({
+        id: repo.id,
+        name: repo.name,
+        fullName: repo.full_name,
+        description: repo.description,
+        private: repo.private,
+        defaultBranch: repo.default_branch,
+        htmlUrl: repo.html_url,
+        language: repo.language,
+        updatedAt: repo.updated_at,
+      }),
+    )
     .sort(
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
@@ -285,7 +288,11 @@ export async function detectInstallationRepository(
   // ── Rule 4: Next.js — needs deeper check for output: 'export' ────────────
   //    We can't read file contents here cheaply, so we default to Nixpacks
   //    and let the user override if they use static export.
-  if (files.has("next.config.js") || files.has("next.config.ts") || files.has("next.config.mjs")) {
+  if (
+    files.has("next.config.js") ||
+    files.has("next.config.ts") ||
+    files.has("next.config.mjs")
+  ) {
     return {
       buildType: "nixpacks",
       confidence: "auto",
@@ -300,13 +307,13 @@ export async function detectInstallationRepository(
 
   // ── Rule 5: Any Node/Python/Go project → Nixpacks ────────────────────────
   const nixpacksMarkers = [
-    "package.json",   // Node
+    "package.json", // Node
     "requirements.txt", // Python
     "pyproject.toml", // Python
-    "go.mod",         // Go
-    "cargo.toml",     // Rust
-    "gemfile",        // Ruby
-    "composer.json",  // PHP
+    "go.mod", // Go
+    "cargo.toml", // Rust
+    "gemfile", // Ruby
+    "composer.json", // PHP
   ];
 
   if (nixpacksMarkers.some((f) => files.has(f))) {

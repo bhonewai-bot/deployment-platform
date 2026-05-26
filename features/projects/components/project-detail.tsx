@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useReducer, useRef } from "react";
 import Link from "next/link";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { DeployLog } from "@/features/deployments/components/deploy-log";
 import type { DeploymentLogLine, DeploymentStatus } from "@/features/deployments/types";
 import {
@@ -49,9 +49,50 @@ type Props = {
   latestRun: DeploymentRunView | null;
 };
 
-// ─── Status helpers ────────────────────────────────────────────────────────────
+// ─── Deployment state (managed by reducer) ────────────────────────────────────
 
 type RunStatus = "pending" | "building" | "success" | "failed" | "cancelled";
+
+type DeployState = {
+  status: RunStatus;
+  applicationId: string | null;
+  publicUrl: string | null;
+  logs: DeploymentLogLine[];
+  pollError: string | null;
+};
+
+type DeployAction =
+  | { type: "REDEPLOY_STARTED"; applicationId: string; publicUrl: string | null }
+  | { type: "POLL_TICK"; dokStatus: DeploymentStatus; logs: DeploymentLogLine[] }
+  | { type: "POLL_ERROR"; message: string };
+
+function deployReducer(state: DeployState, action: DeployAction): DeployState {
+  switch (action.type) {
+    case "REDEPLOY_STARTED":
+      return {
+        status: "building",
+        applicationId: action.applicationId,
+        publicUrl: action.publicUrl,
+        logs: [],
+        pollError: null,
+      };
+    case "POLL_TICK": {
+      const status: RunStatus =
+        action.dokStatus === "done" ? "success"
+        : action.dokStatus === "error" ? "failed"
+        : "building";
+      return {
+        ...state,
+        status,
+        logs: action.logs.length > 0 ? action.logs : state.logs,
+      };
+    }
+    case "POLL_ERROR":
+      return { ...state, pollError: action.message };
+  }
+}
+
+// ─── Status helpers ────────────────────────────────────────────────────────────
 
 function statusConfig(status: RunStatus) {
   switch (status) {
@@ -81,43 +122,43 @@ function StatusBadge({ status }: { status: RunStatus }) {
 // ─── Project detail ────────────────────────────────────────────────────────────
 
 export function ProjectDetail({ project, environment, latestRun }: Props) {
-  const initialStatus = (latestRun?.status ?? "pending") as RunStatus;
-  const initialApplicationId = latestRun?.dokployApplicationId ?? null;
-  const initialPublicUrl = latestRun?.publicUrl ?? null;
-
-  const [runStatus, setRunStatus] = useState<RunStatus>(initialStatus);
-  const [applicationId, setApplicationId] = useState<string | null>(initialApplicationId);
-  const [publicUrl, setPublicUrl] = useState<string | null>(initialPublicUrl);
-  const [logs, setLogs] = useState<DeploymentLogLine[]>([]);
-  const [pollError, setPollError] = useState<string | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [deploy, dispatch] = useReducer(deployReducer, {
+    status: (latestRun?.status ?? "pending") as RunStatus,
+    applicationId: latestRun?.dokployApplicationId ?? null,
+    publicUrl: latestRun?.publicUrl ?? null,
+    logs: [],
+    pollError: null,
+  });
 
   const [redeployState, redeployFormAction, isRedeploying] = useActionState<RedeployState, FormData>(
     redeployAction,
     { status: "idle" },
   );
 
-  // When redeploy succeeds, switch into building state and start polling
+  // When redeployAction resolves to "building", transition state atomically.
+  // dispatch() from useReducer is exempt from the setState-in-effect lint rule.
   useEffect(() => {
     if (redeployState.status === "building") {
-      setRunStatus("building");
-      setApplicationId(redeployState.dokployApplicationId);
-      setPublicUrl(redeployState.publicUrl);
-      setLogs([]);
-      setPollError(null);
+      dispatch({
+        type: "REDEPLOY_STARTED",
+        applicationId: redeployState.dokployApplicationId,
+        publicUrl: redeployState.publicUrl,
+      });
     }
   }, [redeployState]);
 
-  // Polling
+  // Polling loop — runs while status is building and we have an applicationId
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    if (!applicationId || (runStatus !== "building" && runStatus !== "pending")) return;
+    if (!deploy.applicationId || deploy.status !== "building") return;
 
     let cancelled = false;
 
     async function poll() {
       try {
         const res = await fetch(
-          `/api/deployment/status?applicationId=${encodeURIComponent(applicationId!)}`,
+          `/api/deployment/status?applicationId=${encodeURIComponent(deploy.applicationId!)}`,
           { cache: "no-store" },
         );
 
@@ -130,47 +171,38 @@ export function ProjectDetail({ project, environment, latestRun }: Props) {
         if (cancelled) return;
 
         if (!res.ok) {
-          setPollError(data.error ?? "Polling failed.");
-          stopPolling();
+          dispatch({ type: "POLL_ERROR", message: data.error ?? "Polling failed." });
           return;
         }
 
-        const dokStatus = data.status ?? "building";
-        setLogs((prev) => (Array.isArray(data.logs) && data.logs.length > 0 ? data.logs : prev));
-
-        if (dokStatus === "done") {
-          setRunStatus("success");
-          stopPolling();
-        } else if (dokStatus === "error") {
-          setRunStatus("failed");
-          stopPolling();
-        }
+        dispatch({
+          type: "POLL_TICK",
+          dokStatus: data.status ?? "building",
+          logs: Array.isArray(data.logs) ? data.logs : [],
+        });
       } catch {
         if (!cancelled) {
-          setPollError("Lost connection to deployment service.");
-          stopPolling();
+          dispatch({ type: "POLL_ERROR", message: "Lost connection to deployment service." });
         }
       }
-    }
-
-    function stopPolling() {
-      cancelled = true;
-      if (pollingRef.current) clearInterval(pollingRef.current);
     }
 
     void poll();
     pollingRef.current = setInterval(() => void poll(), 2500);
 
-    return () => stopPolling();
-  }, [applicationId, runStatus]);
+    return () => {
+      cancelled = true;
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [deploy.applicationId, deploy.status]);
 
   const buildTypeLabel =
     environment.deploymentMode === "dockerfile" ? "Dockerfile"
     : environment.deploymentMode === "static" ? "Static site"
     : "Nixpacks";
 
-  const isTerminal = runStatus === "success" || runStatus === "failed" || runStatus === "cancelled";
-  const isActive = runStatus === "building";
+  const isActive = deploy.status === "building";
+  const isTerminal = deploy.status === "success" || deploy.status === "failed" || deploy.status === "cancelled";
 
   return (
     <div className="flex flex-col gap-8">
@@ -239,11 +271,11 @@ export function ProjectDetail({ project, environment, latestRun }: Props) {
               <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Production
               </p>
-              <StatusBadge status={runStatus} />
+              <StatusBadge status={deploy.status} />
             </div>
 
             {/* Pending with no applicationId = Dokploy trigger failed */}
-            {runStatus === "pending" && !applicationId && (
+            {deploy.status === "pending" && !deploy.applicationId && (
               <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
                 {latestRun?.errorMessage ?? "Deployment not started yet."}
                 <p className="mt-1 text-xs opacity-70">Use Redeploy to try again.</p>
@@ -251,23 +283,23 @@ export function ProjectDetail({ project, environment, latestRun }: Props) {
             )}
 
             {/* Public URL */}
-            {publicUrl && (
+            {deploy.publicUrl && (
               <div className="mt-4 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-900 dark:bg-green-950">
                 <span className="relative flex size-2.5 shrink-0">
                   <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-60" />
                   <span className="relative inline-flex size-2.5 rounded-full bg-green-400" />
                 </span>
                 <a
-                  href={publicUrl}
+                  href={deploy.publicUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 truncate font-mono text-sm text-green-700 hover:underline dark:text-green-300"
                 >
-                  {publicUrl}
+                  {deploy.publicUrl}
                 </a>
                 <button
                   type="button"
-                  onClick={() => navigator.clipboard.writeText(publicUrl)}
+                  onClick={() => navigator.clipboard.writeText(deploy.publicUrl!)}
                   className="shrink-0 rounded border border-green-200 p-1 text-green-600 hover:bg-green-100 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-900"
                 >
                   <CopyIcon className="size-3.5" />
@@ -276,15 +308,15 @@ export function ProjectDetail({ project, environment, latestRun }: Props) {
             )}
 
             {/* Poll error */}
-            {pollError && (
+            {deploy.pollError && (
               <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {pollError}
+                {deploy.pollError}
               </div>
             )}
 
             {/* Logs */}
             <div className="mt-4">
-              <DeployLog logs={logs} loading={isActive} />
+              <DeployLog logs={deploy.logs} loading={isActive} />
             </div>
           </div>
         </div>
@@ -318,7 +350,7 @@ export function ProjectDetail({ project, environment, latestRun }: Props) {
                 Latest run
               </p>
               <div className="mt-4 space-y-3 text-sm">
-                <InfoRow label="Status" value={runStatus} />
+                <InfoRow label="Status" value={deploy.status} />
                 {latestRun?.createdAt && (
                   <InfoRow
                     label="Started"
