@@ -1,120 +1,75 @@
 <!-- BEGIN:nextjs-agent-rules -->
 
-# This Is Not The Next.js You Remember
+# This is NOT the Next.js you know
 
-This project uses Next.js 16 App Router. APIs, conventions, routing behavior, and auth integration details may differ from older Next.js versions.
-
-Before writing or moving code, read the relevant local docs in `node_modules/next/dist/docs/`, especially:
-
-- `01-app/01-getting-started/02-project-structure.md`
-- `01-app/01-getting-started/03-layouts-and-pages.md`
-- `01-app/01-getting-started/05-server-and-client-components.md`
-- `01-app/01-getting-started/07-mutating-data.md`
-- `01-app/01-getting-started/15-route-handlers.md`
-- `01-app/01-getting-started/16-proxy.md`
-- `01-app/02-guides/authentication.md`
-- `01-app/02-guides/backend-for-frontend.md`
-
-Heed deprecation notices. For Next.js 16 auth protection, use `proxy.ts` terminology when route-level protection is needed.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
 <!-- END:nextjs-agent-rules -->
 
-# Project Mission
+<!-- BEGIN:app-guideline-rules -->
 
-This repository is becoming a production deployment platform, not a simple "paste repo URL and deploy" demo.
+# Role and Tech Stack
 
-The main production flow is:
+You are an Expert Full-Stack Developer specializing in Next.js 16+ (App Router), Prisma ORM, TypeScript, Tailwind CSS, and Shadcn UI.
+Your core stack includes `better-auth` for authentication, `resend` for emails, `react-hook-form` + `zod` for forms and validation.
 
-```text
-Landing page -> sign in or sign up -> connect GitHub -> select authorized repo -> configure project -> create environment -> set secrets -> deploy -> track deployment run
-```
+# General Architecture & Mindset
 
-The old manual GitHub URL input may remain only as an advanced public-repository fallback. Do not treat it as the primary production flow.
+- **Server-First:** Default to React Server Components (RSC). Only use `"use client"` when interactivity, React hooks (useState, useEffect), or browser APIs are strictly required.
+- **Shared Schemas:** Define Zod schemas in a central directory (e.g., `app/lib/validations/`) so they can be imported by BOTH client-side forms and server-side actions.
+- **Type Safety:** Ensure end-to-end type safety from the Prisma database schema to the UI.
 
-# Current Stack
+# 1. Partial Prerendering (PPR) & Caching Strategy
 
-- Next.js 16 App Router
-- React 19
-- TypeScript
-- Prisma 7
-- Neon PostgreSQL
-- Better Auth for email/password and GitHub social login
-- Dokploy as the deployment execution backend
-- Zod for runtime validation
-- shadcn-style UI primitives
+Implement PPR systematically on every page to combine static and dynamic content:
 
-# Agent Operating Rules
+- **Static Shells:** Design page layouts and non-personalized content as static Server Components.
+- **Suspense Boundaries:** Wrap all dynamic, user-specific, or real-time data fetching in `<Suspense>` boundaries.
+- **Dynamic Components:** Create dedicated Server Components for dynamic parts (e.g., `<UserCart />`, `<ProductStock />`) and suspend them.
+- **Next.js Caching:** Utilize Next.js caching methods systematically. Use `use cache` for expensive queries that can be shared, and leverage `revalidatePath` or `revalidateTag` inside Server Actions to purge cache after mutations.
 
-- Read `CLAUDE.md`, `PRD.md`, `plan.md`, and docs under `docs/` before implementing.
-- Prefer small PRD-scoped tasks over broad "make production ready" changes.
-- Do not rewrite working flows unless the task explicitly asks for that migration.
-- Keep server-only secrets and provider clients outside Client Components.
-- Validate all route handler, server action, and form inputs with Zod.
-- Always check ownership and authorization before reading or mutating user-owned resources.
-- Do not add private GitHub repo deployment through a global token.
-- Do not expose raw Dokploy, GitHub, Prisma, or Better Auth errors directly to users.
-- Do not introduce new architecture patterns without updating the docs that guide Claude.
+# 2. Server Actions & Server-Side Security
 
-# Architecture Direction
+All data mutations must be handled via Server Actions.
 
-Use one structure: feature-based product code plus shadcn UI primitives.
+- **Placement:** Define server actions in dedicated files (e.g., `app/app/actions/` or `src/lib/actions/`) with the `"use server"` directive at the top.
+- **Authentication:** Verify user session using `better-auth` at the very beginning of any protected Server Action.
+- **Strict Validation:** EVERY Server Action MUST parse and validate incoming data using a Zod schema (`schema.safeParse()`) before performing any database operations via Prisma or sending emails via Resend.
+- **Standardized Responses:** Return standardized objects from Server Actions (e.g., `{ success: boolean, data?: T, error?: string, fieldErrors?: Record<string, string[]> }`) to handle UI state seamlessly.
+- **No Direct DB Access in Client:** Never expose Prisma client or raw database queries to client components.
 
-Rules:
+# 3. Forms & Client-Side Validation
 
-- `app/` owns routes, layouts, route handlers, and route groups.
-- `features/*` owns product UI, server actions, services, schemas, and local types.
-- `components/ui/*` owns shadcn primitives only.
-- `features/dashboard/components/*` owns dashboard layout, app shell, and sidebar composition.
-- `lib/prisma.ts` owns the Prisma client.
-- `shared/*` owns other true cross-feature infrastructure like env parsing, errors, security, and utility functions.
-- Do not create new code under `server/providers`, `server/services`, `components/deployment`, or `types/index.ts`.
+Every form in the application must follow a strict, unified pattern:
 
-Target features:
+- **Library Stack:** Use `react-hook-form` integrated with `@hookform/resolvers/zod`.
+- **UI Components:** Use `shadcn/ui` Form components (`<Form>`, `<FormField>`, `<FormItem>`, `<FormLabel>`, `<FormControl>`, `<FormMessage>`) for all form construction.
+- **Validation:** Always pass the shared Zod schema to the hook form resolver.
+- **Action Integration:** Forms should handle `onSubmit` by transitioning into a Server Action (e.g., using `useTransition` for pending states) and properly displaying server-returned errors or field-specific errors.
 
-- `auth`
-- `github`
-- `projects`
-- `environments`
-- `deployments`
-- `secrets`
-- `domains`
-- `audit`
-- `webhooks`
+# 4. Database & ORM (Prisma)
 
-# Naming Rules
+- Keep Prisma queries optimized. Use `select` or `include` to fetch only the necessary fields, avoiding over-fetching.
+- Handle database errors gracefully within Server Actions and translate them into user-friendly error messages (do not leak DB schema details to the client).
 
-- Use kebab-case for folders and files: `deploy-form.tsx`, `create-project.schema.ts`.
-- Use PascalCase for React components and Prisma models: `DeployForm`, `Project`.
-- Use camelCase for variables and functions: `createProject`.
-- Use lower-case route segments: `projects`, `deployments`, `sign-in`.
-- Use `Project`, `Environment`, and `DeploymentRun` as the main domain names.
-- Do not use `Deployment` to mean both a long-lived app and one deploy attempt.
-- Keep schemas beside the feature that owns them.
-- Do not use broad shared barrels like `types/index.ts`.
+# 5. UI & Styling (Shadcn UI + Tailwind)
 
-# Production Invariants
+- Use Tailwind CSS for all styling. Use utility classes efficiently.
+- When creating new UI elements, check if a standard `shadcn/ui` component exists first (e.g., Buttons, Inputs, Dialogs, Cards) before building from scratch.
+- Use `cn()` utility (clsx + tailwind-merge) for conditional class names systematically.
 
-- Better Auth is the identity system.
-- GitHub social login is for identity; GitHub App or explicit GitHub connection is the preferred long-term repo access model.
-- A `Project` is long-lived and connected to one source repo.
-- An `Environment` is a deploy target such as production, staging, or preview.
-- A `DeploymentRun` is one attempt to deploy one commit.
-- Secrets are encrypted, scoped, and never returned in plaintext.
-- Browser polling is UI behavior only; backend state must eventually be updated by webhook, worker, or reconciliation.
-- Deployment operations must be idempotent and concurrency-safe per project/environment.
-- `app/page.tsx` is the public landing page. It should show login and sign-up actions when the user is signed out. It may redirect signed-in users to the dashboard.
-- Dashboard routes must require a session.
-- Public pages must not import server-only provider clients into Client Components.
+# 6. Cursor-based Pagination
 
-# Verification
+- Use SWR for server-state management & Pagination
+- Show Skeleton Loading before server data
 
-For documentation-only changes, run no build unless requested.
+# Execution Directives
 
-For code changes, use the narrowest useful checks:
+When asked to create a feature (e.g., "Create a checkout form"):
 
-```bash
-npm run lint
-npm run build
-```
+1. First, write the Zod schema in the `src/lib/validations/` folder.
+2. Second, write the Server Action with session checks and Zod `safeParse` validation.
+3. Third, build the UI using Server Components and Suspense for PPR.
+4. Finally, build the interactive Client Component form using `react-hook-form`, `shadcn/ui`, and the Server Action.
 
-If Prisma schema changes are made, also run the appropriate Prisma generate/migrate command for the task and document migration impact.
+<!-- END:app-guideline-rules -->

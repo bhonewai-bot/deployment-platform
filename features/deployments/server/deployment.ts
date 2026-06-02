@@ -10,7 +10,7 @@ import type {
   EnvVar,
 } from "@/features/deployments/types";
 import { dokploy, dokployGet } from "./dokploy-client";
-import { parseGithubRepo } from "@/features/github/server/github.service";
+import { parseGithubRepo } from "@/features/github/utils/repo-url";
 import { prisma } from "@/lib/prisma";
 import {
   badRequest,

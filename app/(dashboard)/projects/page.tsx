@@ -161,7 +161,7 @@ function ProjectsState({ projects }: { projects: Project[] }) {
             Recent Deployments
           </p>
           <Button variant="ghost" size="sm">
-            <Link href="/deployments">View All</Link>
+            <Link href="/projects/new">View All</Link>
           </Button>
         </div>
 

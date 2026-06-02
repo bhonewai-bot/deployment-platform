@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { githubAppCallbackSchema } from "@/features/github/schemas/github-app.schema";
 import { getGitHubInstallation } from "@/features/github/server/github-app.service";
+import {
+  GITHUB_STATE_COOKIE,
+  isValidState,
+} from "@/features/github/server/github-state";
 import { apiHandler } from "@/lib/api-handler";
 import { auth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
@@ -17,9 +21,33 @@ export const GET = apiHandler(async (request: NextRequest) => {
     return NextResponse.redirect(url);
   }
 
+  // ── CSRF / state validation ─────────────────────────────────────────────
+  // The install route stores a random UUID in a short-lived httpOnly cookie
+  // and appends the same value as ?state= on the GitHub install URL.
+  // GitHub echoes it back here — we reject anything that doesn't match.
+  const callbackState = request.nextUrl.searchParams.get("state");
+  const cookieState = request.cookies.get(GITHUB_STATE_COOKIE)?.value ?? null;
+
+  if (!isValidState(callbackState, cookieState)) {
+    logger.warn(
+      { callbackState, hasCookie: !!cookieState },
+      "GitHub callback rejected: state mismatch or missing",
+    );
+    const url = request.nextUrl.clone();
+    url.pathname = "/projects";
+    url.search = "";
+    url.searchParams.set("github", "invalid-state");
+    const errorResponse = NextResponse.redirect(url);
+    // Clear the cookie even on rejection to prevent reuse.
+    errorResponse.cookies.delete(GITHUB_STATE_COOKIE);
+    return errorResponse;
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   const parsed = githubAppCallbackSchema.safeParse({
     installation_id: request.nextUrl.searchParams.get("installation_id"),
     setup_action: request.nextUrl.searchParams.get("setup_action") ?? undefined,
+    state: callbackState,
   });
 
   if (!parsed.success) {
@@ -31,7 +59,9 @@ export const GET = apiHandler(async (request: NextRequest) => {
     url.pathname = "/projects";
     url.search = "";
     url.searchParams.set("github", "missing-installation");
-    return NextResponse.redirect(url);
+    const errorResponse = NextResponse.redirect(url);
+    errorResponse.cookies.delete(GITHUB_STATE_COOKIE);
+    return errorResponse;
   }
 
   try {
@@ -76,7 +106,10 @@ export const GET = apiHandler(async (request: NextRequest) => {
     url.pathname = "/projects/new";
     url.search = "";
     url.searchParams.set("connected", "github");
-    return NextResponse.redirect(url);
+    const successResponse = NextResponse.redirect(url);
+    // Consume the state cookie — one-time use.
+    successResponse.cookies.delete(GITHUB_STATE_COOKIE);
+    return successResponse;
   } catch (error) {
     logger.error(
       {

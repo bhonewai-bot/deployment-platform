@@ -348,8 +348,8 @@ model GitHubConnection {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// "oauth" | "app_installation"
-  kind String @default("oauth")
+  /// "app_installation" (GitHub App) | "oauth" (PAT, unused)
+  kind String @default("app_installation")
 
   /// GitHub user or organisation login.
   githubLogin String
@@ -359,13 +359,6 @@ model GitHubConnection {
 
   /// GitHub App installation ID. Null for plain OAuth connections.
   installationId String?
-
-  /// AES-256-GCM encrypted OAuth access token.
-  /// Null for App installations that use installation tokens generated at runtime.
-  encryptedAccessToken String?
-
-  /// Token expiry if the provider returns one (GitHub App tokens expire).
-  accessTokenExpiresAt DateTime?
 
   /// OAuth scopes granted, e.g. "repo,read:user"
   scopes String?

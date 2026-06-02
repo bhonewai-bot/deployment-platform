@@ -3,8 +3,12 @@ import "server-only";
 import { createSign } from "crypto";
 
 import { githubApiError, serviceUnavailable } from "@/lib/errors";
+import { cacheGet, cacheSet } from "@/lib/redis";
+import { logger } from "@/lib/logger";
+import { detectBuildType } from "./detect-build-type";
 
-const GITHUB_API_BASE_URL = "https://api.github.com";
+const GITHUB_API_BASE_URL =
+  process.env.GITHUB_API_BASE_URL ?? "https://api.github.com";
 const GITHUB_API_VERSION = process.env.GITHUB_API_VERSION ?? "2022-11-28";
 
 type GitHubInstallationAccount = {
@@ -73,7 +77,6 @@ export type DetectRepositoryResult = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value) throw serviceUnavailable(`Missing ${name} environment variable.`);
@@ -85,7 +88,7 @@ function base64Url(value: object) {
 }
 
 function getPrivateKey() {
-  const base64Key = process.env.GITHUB_APP_PRIVATE_KEY_BASE64;
+  const base64Key = process.env.GITHUB_APP_PRIVATE_KEY;
 
   if (base64Key) {
     return Buffer.from(base64Key, "base64").toString("utf8");
@@ -95,7 +98,7 @@ function getPrivateKey() {
 
   if (!key.includes("-----END")) {
     throw serviceUnavailable(
-      "GITHUB_APP_PRIVATE_KEY is not a complete private key. Use escaped newline characters or GITHUB_APP_PRIVATE_KEY_BASE64.",
+      "GITHUB_APP_PRIVATE_KEY is not a complete private key. Use escaped newline characters or GITHUB_APP_PRIVATE_KEY.",
     );
   }
 
@@ -180,11 +183,39 @@ export async function getGitHubInstallation(installationId: string) {
 }
 
 export async function createInstallationAccessToken(installationId: string) {
-  return githubFetch<GitHubInstallationTokenResponse>(
+  const cacheKey = `github:installation_token:${installationId}`;
+
+  // Check Redis cache first — GitHub tokens last 1h, GitHub rate-limits
+  // installations to 100 token creations per hour.
+  const cached = await cacheGet(cacheKey);
+  if (cached) {
+    logger.debug({ installationId }, "using cached installation token");
+    return { token: cached, expires_at: "" };
+  }
+
+  const result = await githubFetch<GitHubInstallationTokenResponse>(
     `/app/installations/${installationId}/access_tokens`,
     createGitHubAppJwt(),
     { method: "POST" },
   );
+
+  // Cache the token until 60 s before its expiry (GitHub tokens live 1h).
+  const ttlSeconds = computeTokenTtl(result.expires_at);
+  await cacheSet(cacheKey, result.token, ttlSeconds);
+
+  return result;
+}
+
+/**
+ * Compute the number of seconds until `expiresAt`, minus a 60-second safety margin.
+ * Falls back to 55 minutes if the date cannot be parsed.
+ */
+function computeTokenTtl(expiresAt: string): number {
+  if (!expiresAt) return 55 * 60;
+  const expiry = new Date(expiresAt).getTime();
+  if (Number.isNaN(expiry)) return 55 * 60;
+  const ttl = Math.floor((expiry - Date.now()) / 1000) - 60;
+  return Math.max(60, ttl);
 }
 
 export async function listInstallationRepositories(installationId: string) {
@@ -227,117 +258,5 @@ export async function detectInstallationRepository(
     token,
   );
 
-  const files = new Set(
-    contents.filter((c) => c.type === "file").map((c) => c.name.toLowerCase()),
-  );
-
-  const detectedFiles = contents.map((c) => c.name);
-
-  // ── Rule 1: Dockerfile present ───────────────────────────────────────────
-  if (files.has("dockerfile")) {
-    return {
-      buildType: "dockerfile",
-      confidence: "auto",
-      suggestions: {
-        port: "3000",
-        dockerfilePath: "Dockerfile",
-        publishDirectory: "dist",
-      },
-      detectedFiles,
-    };
-  }
-
-  // ── Rule 2: Static site markers ──────────────────────────────────────────
-  //    index.html at root → definitely static, no build step
-  if (files.has("index.html")) {
-    return {
-      buildType: "static",
-      confidence: "auto",
-      suggestions: {
-        port: "3000",
-        dockerfilePath: "Dockerfile",
-        publishDirectory: ".",
-      },
-      detectedFiles,
-    };
-  }
-
-  // ── Rule 3: Known static-output frameworks (check config files) ──────────
-  //    Vite, Astro, SvelteKit (static adapter), plain CRA
-  const staticFrameworkConfigs = [
-    "vite.config.ts",
-    "vite.config.js",
-    "astro.config.ts",
-    "astro.config.mjs",
-    "astro.config.js",
-  ];
-
-  if (staticFrameworkConfigs.some((f) => files.has(f))) {
-    return {
-      buildType: "static",
-      confidence: "auto",
-      suggestions: {
-        port: "3000",
-        dockerfilePath: "Dockerfile",
-        publishDirectory: "dist",
-      },
-      detectedFiles,
-    };
-  }
-
-  // ── Rule 4: Next.js — needs deeper check for output: 'export' ────────────
-  //    We can't read file contents here cheaply, so we default to Nixpacks
-  //    and let the user override if they use static export.
-  if (
-    files.has("next.config.js") ||
-    files.has("next.config.ts") ||
-    files.has("next.config.mjs")
-  ) {
-    return {
-      buildType: "nixpacks",
-      confidence: "auto",
-      suggestions: {
-        port: "3000",
-        dockerfilePath: "Dockerfile",
-        publishDirectory: "out",
-      },
-      detectedFiles,
-    };
-  }
-
-  // ── Rule 5: Any Node/Python/Go project → Nixpacks ────────────────────────
-  const nixpacksMarkers = [
-    "package.json", // Node
-    "requirements.txt", // Python
-    "pyproject.toml", // Python
-    "go.mod", // Go
-    "cargo.toml", // Rust
-    "gemfile", // Ruby
-    "composer.json", // PHP
-  ];
-
-  if (nixpacksMarkers.some((f) => files.has(f))) {
-    return {
-      buildType: "nixpacks",
-      confidence: "auto",
-      suggestions: {
-        port: "3000",
-        dockerfilePath: "Dockerfile",
-        publishDirectory: "dist",
-      },
-      detectedFiles,
-    };
-  }
-
-  // ── Fallback ──────────────────────────────────────────────────────────────
-  return {
-    buildType: "nixpacks",
-    confidence: "guess",
-    suggestions: {
-      port: "3000",
-      dockerfilePath: "Dockerfile",
-      publishDirectory: "dist",
-    },
-    detectedFiles,
-  };
+  return detectBuildType(contents);
 }

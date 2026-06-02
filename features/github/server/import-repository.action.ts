@@ -9,19 +9,6 @@ import { auth } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 
-// ─── Legacy action (kept for compatibility) ───────────────────────────────────
-
-export async function importGithubRepoAction(
-  _prev: unknown,
-  _formData: FormData,
-) {
-  return {
-    success: false,
-    error: "Use deployProjectAction instead.",
-    data: null,
-  };
-}
-
 // ─── State type ───────────────────────────────────────────────────────────────
 
 export type DeployProjectState =
