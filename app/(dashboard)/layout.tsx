@@ -19,10 +19,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div
-      className="dashboard-light flex min-h-screen"
-      style={{ background: "var(--dash-bg)" }}
-    >
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
 
       <div className="ml-64 flex flex-1 flex-col min-w-0">

@@ -3,9 +3,9 @@ import "./styles/globals.css";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Deploy to Dokploy | Monolithic Void",
+  title: "Deplus — Deploy from GitHub to Dokploy",
   description:
-    "Configure a Dokploy deployment inside the Gori Lab control plane.",
+    "Connect your GitHub repository, configure environments and secrets, then ship builds to Dokploy with automatic SSL, monitoring, and custom domains.",
 };
 
 export default function RootLayout({

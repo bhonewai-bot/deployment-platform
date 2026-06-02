@@ -21,33 +21,22 @@ export function Navbar({ session }: NavbarProps) {
     : user.email[0].toUpperCase();
 
   return (
-    <header
-      className="sticky top-0 z-40 flex h-16 w-full items-center justify-between px-8 backdrop-blur-md"
-      style={{
-        background: "var(--dash-header-bg)",
-        borderBottom: "1px solid var(--dash-header-border)",
-      }}
-    >
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/85 px-8 backdrop-blur-md">
       {/* Left — breadcrumbs */}
-      <div
-        className="flex items-center gap-1.5 text-[13px]"
-        style={{ color: "var(--dash-accent-dim)" }}
-      ></div>
+      <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground" />
 
       {/* Right — actions + identity */}
       <div className="flex items-center gap-3">
         <button
           aria-label="Notifications"
-          className="rounded-md p-1.5 transition-colors hover:bg-(--dash-nav-hover-bg)"
-          style={{ color: "var(--dash-accent-dim)" }}
+          className="rounded-md p-1.5 transition-colors hover:bg-accent/50 text-muted-foreground"
         >
           <Icon name="bell" className="size-4.5" />
         </button>
 
         <button
           aria-label="Help"
-          className="rounded-md p-1.5 transition-colors hover:bg-(--dash-nav-hover-bg)"
-          style={{ color: "var(--dash-accent-dim)" }}
+          className="rounded-md p-1.5 transition-colors hover:bg-accent/50 text-muted-foreground"
         >
           <Icon name="help" className="size-4.5" />
         </button>

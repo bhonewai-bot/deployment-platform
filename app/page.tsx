@@ -3,43 +3,50 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import DotField from "@/components/reactbits/DotField";
 
-const steps = [
-  { label: "Connect GitHub", step: "01" },
-  { label: "Select repository", step: "02" },
-  { label: "Configure environment", step: "03" },
-  { label: "Deploy with Dokploy", step: "04" },
-];
-
-const meta = [
-  ["Source", "GitHub"],
-  ["Build", "Dockerfile · static"],
-  ["Runtime", "Dokploy"],
-  ["State", "PostgreSQL"],
-];
-
-const highlights = [
+const features = [
   {
-    icon: "shield" as const,
-    title: "Identity first",
+    icon: "sparkles" as const,
+    title: "Build Automation",
     description:
-      "Every project, environment, and deployment is owned by a verified user. Nothing is accessible without a session.",
+      "Auto-detect Dockerfiles, configure static sites, and ship through Dokploy without manual setup.",
   },
   {
-    icon: "terminal" as const,
-    title: "Explicit build contract",
+    icon: "lock" as const,
+    title: "Auto SSL/TLS",
     description:
-      "Dockerfile and static sites are supported out of the box. No implicit framework detection in the critical path.",
+      "Automatic certificate provisioning and renewal for every deployed environment.",
   },
   {
     icon: "history" as const,
-    title: "Full run history",
+    title: "Monitoring & Logging",
     description:
-      "Each deployment records the branch, mode, Dokploy response, status, and public URL for auditing and debugging.",
+      "Real-time deployment logs, status tracking, and full audit history for every run.",
   },
+  {
+    icon: "link" as const,
+    title: "Custom Domains & Routing",
+    description:
+      "Map custom domains to any environment with flexible routing rules.",
+  },
+];
+
+const steps = [
+  { label: "Connect GitHub", icon: "folder" as const },
+  { label: "Configure project", icon: "settings" as const },
+  { label: "Set secrets", icon: "lock" as const },
+  { label: "Deploy", icon: "rocket" as const },
 ];
 
 export default async function LandingPage() {
@@ -50,19 +57,23 @@ export default async function LandingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#101214] text-on-surface">
+    <main className="dark min-h-screen bg-background text-foreground">
       {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-white/10">
-        {/* Grid texture */}
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-size-[44px_44px] opacity-30"
-        />
-        {/* Radial glow */}
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(62,165,132,0.18),transparent_50%),linear-gradient(180deg,transparent,rgba(16,18,20,0.96)_80%)]"
-        />
+      <section className="relative overflow-hidden border-border">
+        {/* Dot Field Background */}
+        <div aria-hidden className="absolute inset-0">
+          <DotField
+            dotRadius={2}
+            dotSpacing={22}
+            bulgeStrength={67}
+            glowRadius={240}
+            sparkle={false}
+            waveAmplitude={0}
+            cursorRadius={200}
+          />
+          {/* Overlay gradient to blend into the page content */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
+        </div>
 
         {/* Nav */}
         <nav className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
@@ -70,8 +81,8 @@ export default async function LandingPage() {
             <span className="flex size-8 items-center justify-center rounded-md border border-primary/30 bg-primary/10 text-primary">
               <Icon name="rocket" className="size-4" />
             </span>
-            <span className="text-sm font-semibold tracking-tight text-white">
-              Gori Lab
+            <span className="text-sm font-semibold tracking-tight text-foreground">
+              Deplus
             </span>
           </Link>
 
@@ -86,136 +97,158 @@ export default async function LandingPage() {
               href="/sign-up"
               className={cn(buttonVariants({ size: "sm" }))}
             >
-              Create account
+              Sign up
             </Link>
           </div>
         </nav>
 
-        {/* Hero body */}
-        <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 pb-20 pt-14 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8 lg:pb-28 lg:pt-24">
-          {/* Left */}
-          <div className="flex flex-col justify-center">
-            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-md border border-white/10 bg-white/4 px-3 py-1.5">
+        {/* Hero body — centered */}
+        <section className="relative z-10 mx-auto max-w-7xl px-6 pb-28 pt-14 text-center lg:px-8 lg:pb-36 lg:pt-24">
+          {/* Badge */}
+          <div className="mb-8 inline-flex items-center justify-center">
+            <Badge
+              variant="outline"
+              className="gap-2 border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary"
+            >
               <span className="size-1.5 rounded-full bg-primary" />
-              <span className="font-mono text-xs uppercase tracking-widest text-on-surface-variant">
-                GitHub → Dokploy control plane
-              </span>
-            </div>
-
-            <h1 className="max-w-2xl text-[3.25rem] font-black leading-[0.96] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Deploy from GitHub.
-              <br />
-              <span className="text-primary">One control plane.</span>
-            </h1>
-
-            <p className="mt-6 max-w-xl text-base leading-7 text-on-surface-variant sm:text-lg">
-              Connect your repository, set up environments and secrets, then
-              send builds to Dokploy — all from a single protected workspace.
-            </p>
-
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/sign-up"
-                className={cn(buttonVariants({ size: "lg" }), "gap-2")}
-              >
-                <Icon name="rocket" className="size-4" />
-                Start deploying
-              </Link>
-              <Link
-                href="/login"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  "border-white/15 bg-white/3",
-                )}
-              >
-                Log in
-              </Link>
-            </div>
+              GitHub → Dokploy control plane
+            </Badge>
           </div>
 
-          {/* Right — mock deployment card */}
-          <div className="flex flex-col rounded-xl border border-white/10 bg-[#17191c]/90 p-5 shadow-2xl shadow-black/50">
-            {/* Header */}
-            <div className="mb-4 flex items-start justify-between border-b border-white/10 pb-4">
-              <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant">
-                  Deployment run
-                </p>
-                <p className="mt-1 text-sm font-semibold text-white">
-                  api-service · production
-                </p>
+          {/* Headline */}
+          <h1 className="mx-auto max-w-4xl text-[3.25rem] font-black leading-[0.96] tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+            Deploy from GitHub.
+            <br />
+            <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
+              Ship to Dokploy in minutes.
+            </span>
+          </h1>
+
+          {/* Subtitle */}
+          <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+            Connect your repository, configure environments and secrets, then
+            deploy with automatic SSL, monitoring, and custom domains &mdash;
+            all from a single protected workspace.
+          </p>
+
+          {/* CTA */}
+          <div className="mt-9 flex items-center justify-center gap-3">
+            <Link href="/sign-up">
+              <Button size="lg" className="gap-2">
+                <Icon name="rocket" className="size-4" />
+                Start deploying
+              </Button>
+            </Link>
+          </div>
+        </section>
+      </section>
+
+      {/* ── Features ─────────────────────────────────────────── */}
+      <section className="mx-auto max-w-5xl px-6 py-20 lg:px-8 lg:py-28">
+        <div className="mb-12 text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Everything you need to ship
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            From repository connection to production deployment.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {features.map((f) => (
+            <Card key={f.title} size="sm">
+              <CardHeader>
+                <div className="mb-1 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon name={f.icon} className="size-5" />
+                </div>
+                <CardTitle>{f.title}</CardTitle>
+                <CardDescription>{f.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      {/* ── How it works ─────────────────────────────────────── */}
+      <section className="border-t border-border bg-muted/30 px-6 py-20 lg:px-8 lg:py-28">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-12 text-center">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              How it works
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              Four steps from repo to running application.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-4">
+            {steps.map((s, i) => (
+              <div
+                key={s.label}
+                className="relative flex flex-col items-center rounded-xl border border-border bg-card p-6 text-center"
+              >
+                <span className="mb-3 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <Icon name={s.icon} className="size-5" />
+                </span>
+                <span className="text-sm font-semibold text-foreground">
+                  {s.label}
+                </span>
+                {/* Step number */}
+                <span className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Step {String(i + 1).padStart(2, "0")}
+                </span>
+                {/* Connector arrow on desktop */}
+                {i < steps.length - 1 && (
+                  <div
+                    aria-hidden
+                    className="absolute -right-2.5 top-1/2 hidden -translate-y-1/2 text-muted-foreground/30 sm:block"
+                  >
+                    <Icon name="chevron-right" className="size-4" />
+                  </div>
+                )}
               </div>
-              <span className="rounded-md border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                Running
-              </span>
-            </div>
-
-            {/* Meta grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {meta.map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-md border border-white/10 bg-white/3 p-3"
-                >
-                  <p className="font-mono text-[10px] uppercase tracking-widest text-on-surface-variant">
-                    {label}
-                  </p>
-                  <p className="mt-1.5 text-sm font-semibold text-white">
-                    {value}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Log output */}
-            <div className="mt-3 rounded-md border border-white/10 bg-[#0d0f11] p-3.5 font-mono text-xs leading-[1.7] text-on-surface-variant">
-              <p className="text-primary">$ dokploy deploy api-service</p>
-              <p>validating session and project ownership</p>
-              <p>resolving environment variables</p>
-              <p>building from Dockerfile</p>
-              <p className="text-white">deployment accepted · run #42</p>
-            </div>
-
-            {/* Steps */}
-            <div className="mt-3 grid gap-1.5">
-              {steps.map(({ label, step }) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between rounded-md border border-white/10 bg-white/2.5 px-3 py-2"
-                >
-                  <span className="text-sm text-white">{label}</span>
-                  <span className="font-mono text-xs text-on-surface-variant">
-                    {step}
-                  </span>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Feature cards ─────────────────────────────────────── */}
-      <section className="mx-auto grid max-w-7xl gap-4 px-6 py-14 lg:grid-cols-3 lg:px-8">
-        {highlights.map((h) => (
-          <article
-            key={h.title}
-            className="rounded-xl border border-white/10 bg-surface-container-low p-6"
-          >
-            <div className="mb-5 flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <Icon name={h.icon} className="size-5" />
-            </div>
-            <h2 className="text-base font-semibold text-white">{h.title}</h2>
-            <p className="mt-2 text-sm leading-6 text-on-surface-variant">
-              {h.description}
-            </p>
-          </article>
-        ))}
+      {/* ── Final CTA ────────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-t border-border px-6 py-20 lg:px-8 lg:py-28">
+        {/* Purple glow */}
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,oklch(0.56_0.23_265/0.08),transparent_60%)]"
+        />
+
+        <div className="relative z-10 mx-auto max-w-2xl text-center">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Ready to ship?
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Connect your first repository and deploy in minutes. No credit card
+            required.
+          </p>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <Link href="/sign-up">
+              <Button size="lg" className="gap-2">
+                <Icon name="rocket" className="size-4" />
+                Start deploying
+              </Button>
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* ── Footer strip ──────────────────────────────────────── */}
-      <footer className="border-t border-white/10 px-6 py-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between text-xs text-on-surface-variant">
-          <span>Gori Lab</span>
+      {/* ── Footer ───────────────────────────────────────────── */}
+      <footer className="border-t border-border px-6 py-8 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <span className="flex size-6 items-center justify-center rounded border border-primary/20 bg-primary/5 text-primary">
+              <Icon name="rocket" className="size-3" />
+            </span>
+            Deplus
+          </span>
+          <span>&copy; 2026 Deplus</span>
         </div>
       </footer>
     </main>
