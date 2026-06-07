@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -49,17 +50,26 @@ const steps = [
   { label: "Deploy", icon: "rocket" as const },
 ];
 
-export default async function LandingPage() {
+// Session check — runs at request time inside Suspense boundary
+async function SessionRedirect() {
   const session = await auth.api.getSession({ headers: await headers() });
 
   if (session) {
     redirect("/projects");
   }
 
+  return null;
+}
+
+export default function LandingPage() {
   return (
     <main className="dark min-h-screen bg-background text-foreground">
+      <Suspense fallback={null}>
+        <SessionRedirect />
+      </Suspense>
       {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-border">
+      <Suspense fallback={null}>
+      <section className="relative overflow-hidden border-border"> {/* DotField is client-side, wrapped below */}
         {/* Dot Field Background */}
         <div aria-hidden className="absolute inset-0">
           <DotField
@@ -142,6 +152,7 @@ export default async function LandingPage() {
           </div>
         </section>
       </section>
+      </Suspense>
 
       {/* ── Features ─────────────────────────────────────────── */}
       <section className="mx-auto max-w-5xl px-6 py-20 lg:px-8 lg:py-28">
